@@ -1,0 +1,48 @@
+name: Share a find
+description: An item the addon missed or has wrong (a vendor item, a quest reward, a rare drop, a wrong drop place).
+title: "Find: "
+labels: ["find"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping. Finds you loot in game are shared by the addon on its own; use this form for anything it could not see or got wrong.
+  - type: input
+    id: item
+    attributes:
+      label: Item
+      description: The item's name, or its link or ID if you have it.
+      placeholder: Debt Collector
+    validations:
+      required: true
+  - type: dropdown
+    id: how
+    attributes:
+      label: How you got it
+      options:
+        - Dropped by a mob or boss
+        - Sold by a vendor
+        - Quest reward
+        - From a chest, node or container
+        - Crafted
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: where
+    attributes:
+      label: Where
+      description: The zone or dungeon, and the mob, vendor or quest name. Coordinates help if you have them.
+      placeholder: The Stockade, Bazil Thredd
+    validations:
+      required: true
+  - type: input
+    id: level
+    attributes:
+      label: Your level
+      placeholder: "28"
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else
+      description: What the addon shows that looks wrong, or a screenshot of the tooltip.
