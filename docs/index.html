@@ -4,127 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Forever Item Finder</title>
-<meta name="description" content="A World of Warcraft: Forever addon that finds every new and changed item, shows where it drops, and shares finds between players.">
+<meta http-equiv="refresh" content="0; url=https://forever-item-finder.pages.dev/">
+<link rel="canonical" href="https://forever-item-finder.pages.dev/">
 <link rel="icon" type="image/png" href="favicon.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg: #15110D;
-    --panel: #221A11;
-    --inset: #0F0C09;
-    --line: #4A3A22;
-    --frame: #8A6B2A;
-    --gold: #C9A23A;
-    --title: #FFD100;
-    --ink: #E8DCC0;
-    --dim: #BFAE8C;
-    --red: #7E1212;
-    --red-hi: #962020;
-    --red-edge: #3A0808;
-    --red-top: #B23A2A;
-  }
-  * { box-sizing: border-box; }
-  html { background: var(--bg); }
-  body {
-    margin: 0;
-    background: radial-gradient(ellipse at top, #2A1F14 0%, var(--bg) 60%) no-repeat, var(--bg);
-    color: var(--ink);
-    font: 17px/1.55 'Barlow', 'Segoe UI', sans-serif;
-  }
-  a { color: var(--title); }
-  .wrap { max-width: 920px; margin: 0 auto; padding: 0 16px; }
-  header { text-align: center; padding: 56px 0 36px; }
-  header img { width: 148px; height: 148px; border-radius: 6px; box-shadow: 0 8px 28px #000; }
-  h1, h2 { font-family: 'Cinzel', Georgia, serif; color: var(--title); font-weight: 700; letter-spacing: 0.5px; }
-  h1 { font-size: 44px; margin: 22px 0 8px; line-height: 1.1; }
-  .tag { color: var(--dim); font-size: 19px; max-width: 620px; margin: 0 auto 28px; }
-  .buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-  .btn {
-    display: inline-flex; align-items: center; height: 44px; padding: 0 22px;
-    border: 1px solid var(--red-edge); border-top-color: var(--red-top); border-radius: 4px;
-    background: var(--red); color: var(--title); font-weight: 600; text-decoration: none;
-  }
-  .btn:hover { background: var(--red-hi); }
-  .btn.quiet { background: var(--panel); border-color: var(--line); border-top-color: var(--frame); }
-  .btn.quiet:hover { background: #2E2317; }
-  section { margin: 0 0 28px; }
-  .box { background: var(--panel); border: 1px solid var(--frame); border-radius: 6px; overflow: hidden; }
-  .box h2 { margin: 0; padding: 12px 20px; font-size: 22px; background: #2A1F14; border-bottom: 1px solid var(--line); }
-  .box .body { padding: 18px 20px 20px; }
-  .ways { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-  .way { background: var(--inset); border: 1px solid var(--line); border-radius: 4px; padding: 16px; display: flex; flex-direction: column; }
-  .way h3 { margin: 0 0 6px; color: var(--title); font-size: 18px; font-weight: 600; }
-  .way p { margin: 0 0 14px; color: var(--ink); flex: 1; }
-  .way .btn { height: 38px; padding: 0 16px; align-self: flex-start; font-size: 15px; }
-  .note { color: var(--dim); font-size: 15px; margin: 4px 0 0; }
-  ul.list { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 24px; }
-  ul.list li { padding-left: 18px; position: relative; }
-  ul.list li::before { content: ""; position: absolute; left: 0; top: 10px; width: 7px; height: 7px; background: var(--gold); transform: rotate(45deg); }
-  ul.list b { color: var(--title); font-weight: 600; }
-  code { background: var(--inset); border: 1px solid var(--line); border-radius: 3px; padding: 1px 6px; color: var(--title); }
-  footer { text-align: center; color: var(--dim); font-size: 14px; padding: 18px 0 40px; border-top: 1px solid var(--line); margin-top: 12px; }
-  @media (max-width: 720px) {
-    header { padding: 36px 0 26px; }
-    h1 { font-size: 34px; }
-    .ways, ul.list { grid-template-columns: 1fr; }
-  }
+  html, body { margin: 0; background: #15110D; color: #E8DCC0; font: 17px/1.5 'Segoe UI', sans-serif; }
+  main { max-width: 560px; margin: 80px auto; padding: 0 16px; text-align: center; }
+  img { width: 96px; height: 96px; border-radius: 4px; }
+  a { color: #FFD100; }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <img src="logo.png" alt="Forever Item Finder logo" width="148" height="148">
-    <h1>Forever Item Finder</h1>
-    <p class="tag">Every new and changed item in World of Warcraft: Forever. See where it drops, what it does, and who found it first.</p>
-    <div class="buttons">
-      <a class="btn" href="https://www.curseforge.com/wow/addons/forever-item-finder">Get it on CurseForge</a>
-      <a class="btn quiet" href="https://discord.gg/yMZmnFjUTd">Join the Discord</a>
-    </div>
-  </header>
-
-  <section class="box" id="share">
-    <h2>Share your finds</h2>
-    <div class="body">
-      <div class="ways">
-        <div class="way">
-          <h3>Just play</h3>
-          <p>With the addon installed, the new items you loot reach every player using it on your ruleset, and theirs reach you. Nothing to set up. In Settings you choose to be credited by name or stay anonymous.</p>
-        </div>
-        <div class="way">
-          <h3>Found something it missed?</h3>
-          <p>An item sold by a vendor, a quest reward, a rare drop, or a drop place that looks wrong: tell us so it can be added for everyone.</p>
-          <a class="btn" href="https://github.com/ArcSim/ForeverItemFinder/issues/new?template=share-a-find.yml">Share a find</a>
-        </div>
-        <div class="way">
-          <h3>No GitHub account?</h3>
-          <p>Post it in the Discord instead. The item's name, where you got it and your level are all we need.</p>
-          <a class="btn quiet" href="https://discord.gg/yMZmnFjUTd">Open the Discord</a>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="box" id="features">
-    <h2>What you get</h2>
-    <div class="body">
-      <ul class="list">
-        <li><b>Live Feed:</b> new and changed items as players find them, newest first, with where each one dropped.</li>
-        <li><b>Item Database:</b> every new Forever item, searchable by name or zone, filtered by level, quality, slot, class, source, and dungeon or raid.</li>
-        <li><b>Where it drops:</b> a map with every known spot, the boss, mob, vendor or quest, and the drop rate where it is known.</li>
-        <li><b>Pop-ups:</b> a card the moment a new item is found, filtered the way you choose.</li>
-        <li><b>Full tooltips:</b> pin an item's tooltip beside the window, or link it in chat.</li>
-        <li><b>World Map pins:</b> send an item's drop spots to your World Map with a waypoint.</li>
-      </ul>
-      <p class="note">Type <code>/fif</code> in game or use the minimap button to open it.</p>
-    </div>
-  </section>
-
-  <footer>
-    Forever Item Finder is made by Arc and free under the GPL v3. <a href="https://github.com/ArcSim/ForeverItemFinder">GitHub</a><br>
-    World of Warcraft is a trademark of Blizzard Entertainment. This addon is not made or endorsed by Blizzard.
-  </footer>
-</div>
+<main>
+  <img src="logo.png" alt="Forever Item Finder logo" width="96" height="96">
+  <p>Forever Item Finder has moved to <a href="https://forever-item-finder.pages.dev/">forever-item-finder.pages.dev</a>.</p>
+</main>
 </body>
 </html>
