@@ -2499,8 +2499,20 @@ function UI.BuildSettings(body)
         pull:SetScript("OnClick", function()
             note:SetText(ns.Sync.CollectAll() and ("Asking this server's copies; " .. Saved() .. " saved") or "Sharing is not on yet")
         end)
-        dev:SetHeight(dev.top + U(10) + U(26) + U(12))
-        set.dev, set.pull, set.devNote = dev, pull, note
+        -- what this copy saw done to the sharing channel, for deciding bans (Bans.lua)
+        local report = T.Button(dev, "Channel report", nil, U(26))
+        report:SetPoint("TOPLEFT", pull, "BOTTOMLEFT", 0, -U(8))
+        report:SetScript("OnClick", function() UI.ShowReport() end)
+        local count = T.Text(dev, 13, C.dim)
+        count:SetPoint("LEFT", report, "RIGHT", U(10), 0)
+        local function Count()
+            local n = ns.db.report and #ns.db.report or 0
+            count:SetText(n == 1 and "1 line" or (n .. " lines"))
+        end
+        Count()
+        ns.Listen("ReportChanged", Count)
+        dev:SetHeight(dev.top + U(10) + U(26) + U(8) + U(26) + U(12))
+        set.dev, set.pull, set.devNote, set.report, set.reportCount = dev, pull, note, report, count
     end
 end
 
@@ -2733,6 +2745,66 @@ function UI.ShowLink(url)
     UI.linkBox:Show()
     UI.linkBox.edit:SetFocus()
     UI.linkBox.edit:HighlightText()
+end
+
+-- the developer's channel report, newest first, in a box to copy from (typing in it puts the text back)
+function UI.ReportText()
+    local r = ns.db and ns.db.report or {}
+    if #r == 0 then return "Nothing seen yet. Takeovers of the sharing channel and muted players show up here." end
+    local lines = {}
+    for i = #r, 1, -1 do lines[#lines + 1] = date("%b %d %H:%M", r[i].t) .. "  " .. r[i].text end
+    return table.concat(lines, "\n")
+end
+
+function UI.ShowReport()
+    if not UI.reportBox then
+        local f = CreateFrame("Frame", nil, UIParent)
+        f:SetSize(U(560), U(330))
+        f:SetPoint("CENTER", 0, U(60))
+        f:SetFrameStrata("DIALOG")
+        f:EnableMouse(true)
+        T.Panel(f, C.bg, C.gold)
+        local title = T.Text(f, 15, C.title)
+        title:SetPoint("TOPLEFT", U(12), -U(10))
+        title:SetText("Channel report")
+        local x = CreateFrame("Button", nil, f, "UIPanelCloseButton")
+        x:SetPoint("TOPRIGHT", 2, 2)
+        local scroll = CreateFrame("ScrollFrame", nil, f, "UIPanelScrollFrameTemplate")
+        scroll:SetPoint("TOPLEFT", U(12), -U(40))
+        scroll:SetPoint("BOTTOMRIGHT", -U(32), U(48))
+        local box = CreateFrame("EditBox", nil, scroll)
+        box:SetMultiLine(true)
+        box:SetAutoFocus(false)
+        box:SetFont(T.FONT, U(12), "")
+        box:SetTextColor(T.RGB(C.ink))
+        box:SetWidth(U(510))
+        scroll:SetScrollChild(box)
+        box:SetScript("OnEscapePressed", function() f:Hide() end)
+        box:SetScript("OnTextChanged", function(self, user)
+            if user and self.keep then
+                self:SetText(self.keep)
+                self:HighlightText()
+            end
+        end)
+        local all = T.Button(f, "Select all", nil, U(26))
+        all:SetPoint("BOTTOMLEFT", U(12), U(12))
+        all:SetScript("OnClick", function()
+            box:SetFocus()
+            box:HighlightText()
+        end)
+        local clear = T.Button(f, "Clear", nil, U(26))
+        clear:SetPoint("LEFT", all, "RIGHT", U(8), 0)
+        clear:SetScript("OnClick", function()
+            ns.db.report = {}
+            UI.ShowReport()
+        end)
+        f.box, f.all, f.clear = box, all, clear
+        UI.reportBox = f
+    end
+    local f = UI.reportBox
+    f.box.keep = UI.ReportText()
+    f.box:SetText(f.box.keep)
+    f:Show()
 end
 
 -- Share your finds: the share string to copy (Proto.EncodeShare) and the website to paste it on. The boxes only offer

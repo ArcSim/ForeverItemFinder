@@ -5,3 +5,6 @@ DevMaps/
 site/public/data/
 site/public/maps/
 site/public/icons/
+# the retail test toc stays on the developer's PC: the release packager reads every toc's Interface for the
+# CurseForge game versions, so in the repo it labels a Forever release Retail too
+ForeverItemFinder_Mainline.toc

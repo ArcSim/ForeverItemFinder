@@ -20,7 +20,7 @@ local OVERLAP = 3600          -- a catch-up reaches an hour back from the bookma
 local SENDER_WINDOW = 300
 local SENDER_MAX = 40         -- finds one sender may announce per window before being muted
 local BAD_MAX = 5             -- broken messages before a sender is muted
-local ASK_MAX = 6             -- fresh catch-up asks from one sender per SENDER_WINDOW before it is muted
+local ASK_MAX = 6             -- fresh catch-up asks answered for one sender per SENDER_WINDOW
 local QUIET_GAP = 600         -- a find announced this long after the last word from another copy may have reached nobody
 local RESEND_MAX = 20         -- such finds sent again per SENDER_WINDOW, live finds included, well under SENDER_MAX
 local RESEND_WAIT = 30        -- seconds before they go, so a newcomer's catch-up comes first
@@ -33,7 +33,9 @@ function Engine.New(env)
     return e
 end
 
-function Engine:Mute(sender)
+-- why: a line for the developer's channel report
+function Engine:Mute(sender, why)
+    if not self.muted[sender] and why and self.env.report then self.env.report("muted", sender, why) end
     self.muted[sender] = true
 end
 
@@ -49,6 +51,13 @@ local function Bucket(self, sender)
         self.senders[sender] = b
     end
     return b
+end
+
+-- a message this copy cannot read; a sound one from another version of the addon is let go without counting
+local function Bad(self, b, sender, msg)
+    if P.OtherVersion(msg) then return end
+    b.bad = b.bad + 1
+    if b.bad >= BAD_MAX then self:Mute(sender, b.bad .. " unreadable messages") end
 end
 
 function Engine:Pump()
@@ -279,21 +288,22 @@ end
 function Engine:Receive(msg, dist, sender)
     local env = self.env
     if not sender or sender == env.me or self.muted[sender] then return end
+    -- a banned player is not heard at all
+    if env.banned and env.banned(sender) then return end
     local kind = P.Kind(msg)
     local b = Bucket(self, sender)
     if kind == "F" then
         local info = P.DecodeFind(msg)
-        if not info then
-            b.bad = b.bad + 1
-            if b.bad >= BAD_MAX then self:Mute(sender) end
-            return
-        end
+        if not info then return Bad(self, b, sender, msg) end
         self:Heard()
         -- pages from a copy that served this one lately are expected; only live announcements count against a sender
         local served = self.helped[sender]
         if not (dist == "WHISPER" and served and env.now() - served < SENDER_WINDOW) then
             b.finds = b.finds + 1
-            if b.finds > SENDER_MAX then self:Mute(sender) return end
+            if b.finds > SENDER_MAX then
+                self:Mute(sender, b.finds .. " finds within 5 minutes")
+                return
+            end
         end
         self.lastHeard = env.now()
         -- the server names the sender and nothing else in a message can be trusted: a credit stands only when it names
@@ -312,15 +322,13 @@ function Engine:Receive(msg, dist, sender)
         end)
     elseif kind == "H" then
         local count, sum, since, after = P.DecodeHello(msg)
-        if not count then b.bad = b.bad + 1 return end
-        -- a fresh ask comes at login and at most once a minute from Refresh; a copy asking over and over only makes the
-        -- others whisper pages, so it is muted (a page run's next asks carry a cursor and are not counted)
+        if not count then return Bad(self, b, sender, msg) end
+        -- a fresh ask comes at login and at most once a minute from Refresh; past ASK_MAX in a window more asks go
+        -- unanswered, without a mute (a player reloading a lot is no troublemaker; a page run's next asks carry a cursor
+        -- and are not counted)
         if (after or 0) == 0 then
             b.asks = (b.asks or 0) + 1
-            if b.asks > ASK_MAX then
-                self:Mute(sender)
-                return
-            end
+            if b.asks > ASK_MAX then return end
         end
         self:Heard(true)
         local myCount, mySum = env.finds.Summary()
@@ -342,7 +350,7 @@ function Engine:Receive(msg, dist, sender)
         end)
     elseif kind == "Y" then
         local target, count = P.DecodeServing(msg)
-        if not target then b.bad = b.bad + 1 return end
+        if not target then return Bad(self, b, sender, msg) end
         self:Heard()
         local mine = self.serving[target]
         -- a claim near this copy's own holding settles it; a much smaller one does not
@@ -357,7 +365,7 @@ function Engine:Receive(msg, dist, sender)
         end
     elseif kind == "E" then
         local n, last = P.DecodeEnd(msg)
-        if not n or dist ~= "WHISPER" then b.bad = b.bad + 1 return end
+        if not n or dist ~= "WHISPER" then return Bad(self, b, sender, msg) end
         self:Heard()
         -- only the biggest holder that claimed this ask steers the pages; late or smaller pages only add finds
         local round = self.round
@@ -375,8 +383,7 @@ function Engine:Receive(msg, dist, sender)
             self:RunDone()
         end
     else
-        b.bad = b.bad + 1
-        if b.bad >= BAD_MAX then self:Mute(sender) end
+        Bad(self, b, sender, msg)
     end
 end
 
@@ -405,6 +412,36 @@ local function Me()
     if realm and realm ~= "" and not ns.Secret(realm) then return name .. "-" .. realm end
     return name
 end
+
+-- a player's name the way the ban list and the report write it, with the realm (the game leaves this player's own
+-- realm off some names)
+local function Full(name)
+    if type(name) ~= "string" or ns.Secret(name) or name == "" then return nil end
+    if name:find("-", 1, true) then return name end
+    local realm = GetNormalizedRealmName and GetNormalizedRealmName()
+    if realm and realm ~= "" and not ns.Secret(realm) then return name .. "-" .. realm end
+    return name
+end
+S.Full = Full
+
+local function Banned(sender)
+    local full = Full(sender)
+    return full ~= nil and ns.BANS ~= nil and ns.BANS[full] == true
+end
+S.Banned = Banned
+
+-- the developer's channel report: what this copy saw done to the channel and whom it muted, as facts with the names the
+-- server gave; whether anyone is banned stays the developer's call
+local REPORT_MAX = 200
+local function Report(text)
+    if not ns.DEV or not ns.db then return end
+    local r = ns.db.report or {}
+    ns.db.report = r
+    r[#r + 1] = { t = ns.Now(), text = text }
+    while #r > REPORT_MAX do table.remove(r, 1) end
+    ns.Signal("ReportChanged")
+end
+S.Report = Report
 
 local function ChannelNumber()
     local id = GetChannelName(Current())
@@ -477,10 +514,12 @@ function Hop()
     if type(id) == "number" and id > 0 and LeaveChannelByName then LeaveChannelByName(old) end
     if hops >= NAMES then
         S.state = "nochannel"
+        Report("every channel name failed this session: sharing paused")
         ns.Signal("SyncState")
         return
     end
     slot = slot % NAMES + 1
+    Report("moved from " .. old .. " to " .. Current())
     joinTries = 0
     S.state = "starting"
     ns.Signal("SyncState")
@@ -500,8 +539,33 @@ end
 -- notices about the channel in use: only its owner or a moderator can do these, and copies never do
 local TAKEOVER = { PASSWORD_CHANGED = true, MODERATION_ON = true, PLAYER_KICKED = true, PLAYER_BANNED = true,
     UNSET_VOICE = true, MUTED = true }
-local function Notice(kind, _, _, _, _, _, _, _, name)
+
+-- the report's words per notice. The game's notice strings put the acting player first when there is one name
+-- ("Password changed by %s") and the player acted on first, the actor second, when there are two ("Player %s kicked by
+-- %s"); a name the notice leaves out is never guessed
+local NOBODY = "an unnamed player"
+local SAID = {
+    PASSWORD_CHANGED = function(first) return "password changed by " .. (first or NOBODY) end,
+    MODERATION_ON = function(first) return "moderation turned on by " .. (first or NOBODY) end,
+    PLAYER_KICKED = function(first, second) return (first or NOBODY) .. " kicked by " .. (second or NOBODY) end,
+    PLAYER_BANNED = function(first, second) return (first or NOBODY) .. " banned by " .. (second or NOBODY) end,
+    UNSET_VOICE = function(first, second) return (first or NOBODY) .. " lost chat permission" .. (second and (", by " .. second) or "") end,
+    SET_MODERATOR = function(first, second) return (first or NOBODY) .. " made a moderator" .. (second and (", by " .. second) or "") end,
+    MUTED = function() return "this copy may not speak there" end,
+    WRONG_PASSWORD = function() return "our password was refused" end,
+    BANNED = function() return "this character is banned there" end,
+}
+local function Ours(name)
+    local n = name:lower()
+    if n == CHANNEL:lower() then return true end
+    local i = tonumber(n:match("^" .. CHANNEL:lower() .. "(%d)$"))
+    return i ~= nil and i >= 2 and i <= NAMES
+end
+
+-- arg2 is a notice's first player, arg5 its second, arg9 the channel
+local function Notice(kind, first, _, _, second, _, _, _, name)
     if ns.Secret(kind) or ns.Secret(name) or type(kind) ~= "string" or type(name) ~= "string" then return end
+    if SAID[kind] and Ours(name) then Report(name .. ": " .. SAID[kind](Full(first), Full(second))) end
     if name:lower() ~= Current():lower() then return end
     if kind == "WRONG_PASSWORD" or kind == "BANNED" then
         refused = true
@@ -624,8 +688,26 @@ ns.Listen("DBReady", function()
             ns.db.sync = ns.db.sync or {}
             ns.db.sync[ServerKey()] = t
         end,
+        banned = Banned,
+        report = function(_, sender, why) Report("muted " .. (Full(sender) or "?") .. " for this session: " .. why) end,
     })
 end)
+
+-- a banned player's reports come off every find at login, and a find from the network only they reported goes. Their
+-- reports were keyed by the sender name the game gave, which for this realm's players may lack the realm
+local function PurgeBans()
+    if not ns.BANS or not next(ns.BANS) or not ns.Finds.DropReporters then return end
+    local realm = (Me() or ""):match("%-(.+)$")
+    local keys = {}
+    for name in pairs(ns.BANS) do
+        keys[ns.Finds.ReporterKey(name)] = true
+        local short, r = name:match("^([^-]+)%-(.+)$")
+        if short and r == realm then keys[ns.Finds.ReporterKey(short)] = true end
+    end
+    ns.Finds.DropReporters(keys)
+end
+S.PurgeBans = PurgeBans
+ns.Listen("Login", PurgeBans)
 
 ns.On("PLAYER_ENTERING_WORLD", function(isLogin, isReload)
     if S.joined then return end

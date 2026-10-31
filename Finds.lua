@@ -112,6 +112,27 @@ function F.Reporters(e)
     return e and Count(e.rp or {}) or 0
 end
 
+-- takes the given reporters off every find; a find from the network left with none of its reporters goes. Returns how
+-- many finds went
+function F.DropReporters(keys)
+    local gone = 0
+    for id, e in pairs(db or {}) do
+        local hit = false
+        for key in pairs(e.rp or {}) do
+            if keys[key] then
+                e.rp[key] = nil
+                hit = true
+            end
+        end
+        if hit and not e.mine and not e.demo and next(e.rp) == nil then
+            db[id] = nil
+            gone = gone + 1
+        end
+    end
+    sorted = nil
+    return gone
+end
+
 -- reporters other than this player (its own sightings are keyed by its name, with or without the realm)
 function F.OthersReporting(e, me)
     if not e or not e.rp then return 0 end

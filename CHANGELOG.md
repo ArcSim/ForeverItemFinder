@@ -1,5 +1,11 @@
 # Forever Item Finder changelog
 
+## 1.0.2
+
+### Improvements
+- **Troublemakers can be shut out**: players who abuse the sharing channel can be banned, and everyone's addon then ignores their finds and requests.
+- **Fewer wrong mutes**: players who reload a lot, or run a newer version of the addon, are no longer muted by others.
+
 ## 1.0.1
 
 ### New Features

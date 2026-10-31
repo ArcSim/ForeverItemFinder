@@ -135,6 +135,16 @@ function P.Kind(msg)
     return type(msg) == "string" and msg:sub(1, 1) or nil
 end
 
+-- a sound message from another version of the addon: not junk, only not ours to read, so it never counts against the
+-- sender
+function P.OtherVersion(msg)
+    if type(msg) ~= "string" or #msg < 6 or #msg > P.MAX then return false end
+    local body, ck = msg:match("^(.*)~(%x%x%x%x)$")
+    if not body or Checksum(body) ~= ck then return false end
+    local v = tonumber(body:match("^[^~]*~([^~]*)"))
+    return v ~= nil and v ~= P.VERSION
+end
+
 -- the string a player copies onto the website: a header (an anonymous id for this install and how many finds follow),
 -- then one find message per find, all joined by "^". The count lets the website tell a paste that was cut short.
 P.SHARE = "FIFS"
