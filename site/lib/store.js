@@ -7,12 +7,19 @@ export const MAX_TEXT = 600000;    // characters a share string may have
 export const MAX_FINDS = 2000;     // finds read from one string
 const CHUNK = 250;
 
-const rowOf = (f) => ({
-  id: f.id, k: f.kind, q: f.q ?? null, il: f.ilvl ?? null, rq: f.req ?? null, cl: f.cls ?? null, sc: f.sub ?? null,
-  iv: f.inv ?? null, by: f.by ?? null, at: f.at ?? null,
-  t: f.src ? f.src.t : null, n: f.src?.n ?? '', npc: f.src?.npc ?? null, lv: f.src?.lv ?? null, z: f.src?.z ?? '',
-  sz: f.src?.sz ?? null, x: f.src?.x ?? null, y: f.src?.y ?? null, m: f.src?.m ?? null,
-});
+// nothing typed in a pasted string is kept: no credit name (a paste cannot prove who found it) and no place names
+// (the page names creatures and zones from its own data, by their ids). The source key columns n and z hold those
+// ids as text, so one item keeps a source per creature and map; they are never shown
+const num = (v) => (Number.isInteger(v) && v > 0 && v < 100000000 ? v : null);
+const rowOf = (f) => {
+  const npc = num(f.src?.npc), m = num(f.src?.m);
+  return {
+    id: f.id, k: f.kind, q: f.q ?? null, il: f.ilvl ?? null, rq: f.req ?? null, cl: f.cls ?? null, sc: f.sub ?? null,
+    iv: f.inv ?? null, by: null, at: f.at ?? null,
+    t: f.src ? f.src.t : null, n: npc ? String(npc) : '', npc, lv: f.src?.lv ?? null, z: m ? String(m) : '',
+    sz: null, x: f.src?.x ?? null, y: f.src?.y ?? null, m,
+  };
+};
 const J = (col) => `json_extract(value, '$.${col}')`;
 
 const KNOWN = `SELECT COUNT(*) AS n FROM finds WHERE id IN (SELECT ${J('id')} FROM json_each(?1))`;
@@ -67,19 +74,20 @@ export async function share(db, text, ipKey, now) {
 
 const SHARERS = '(SELECT COUNT(*) FROM seen s WHERE s.id = f.id)';
 
-// the newest finds, by when they were found
+// the newest finds, by when they were found; text stored before names were dropped is never read back out
 export async function latest(db, limit) {
-  const r = await db.prepare(`SELECT f.id, f.k, f.q, f.by, f.found_at, ${SHARERS} AS sharers,
-      (SELECT z FROM sources WHERE id = f.id AND z <> '' LIMIT 1) AS z
+  const r = await db.prepare(`SELECT f.id, f.k, f.q, f.found_at, ${SHARERS} AS sharers,
+      (SELECT m FROM sources WHERE id = f.id AND m IS NOT NULL LIMIT 1) AS m
     FROM finds f ORDER BY COALESCE(f.found_at, f.added_at) DESC, f.id DESC LIMIT ?1`).bind(limit).all();
   return r.results || [];
 }
 
-// one item's find, how many players shared it, and where they got it
+// one item's find, how many players shared it, and where they got it (ids only: the page names them)
 export async function itemFinds(db, id) {
-  const find = await db.prepare(`SELECT f.*, ${SHARERS} AS sharers FROM finds f WHERE f.id = ?1`).bind(id).first();
+  const find = await db.prepare(`SELECT f.id, f.k, f.q, f.il, f.rq, f.cl, f.sc, f.iv, f.found_at, f.added_at, ${SHARERS} AS sharers
+    FROM finds f WHERE f.id = ?1`).bind(id).first();
   if (!find) return null;
-  const src = await db.prepare('SELECT t, n, npc, lv, z, sz, x, y, m FROM sources WHERE id = ?1 LIMIT 10').bind(id).all();
+  const src = await db.prepare('SELECT t, npc, lv, x, y, m FROM sources WHERE id = ?1 LIMIT 10').bind(id).all();
   const sharers = find.sharers;
   delete find.sharers;
   return { find, sharers, sources: src.results || [] };

@@ -87,6 +87,8 @@ local function Build()
         else
             GameTooltip:AddLine(ns.Finds.Count() .. " finds", 1, 1, 1)
         end
+        local new = ns.UI.FeedNew()
+        if new > 0 then GameTooltip:AddLine(new .. " new in the Live Feed", 1, 1, 1) end
         GameTooltip:AddLine("Click: open", 0.12, 1, 0)
         GameTooltip:AddLine("Right-click: options", 0.12, 1, 0)
         GameTooltip:Show()

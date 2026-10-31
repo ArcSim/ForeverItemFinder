@@ -350,7 +350,18 @@ end
 -- what a find teaches the database: an item it has no row for, a hidden one, a new one with no known drop place, an
 -- old Classic item Forever changed (a find only when its numbers differ), or a changed one whose drop place was not
 -- known. A test run outside Forever counts every find.
+local Discovery
+-- kept per item: the answer holds while the data is loaded, and the feed asks it for every find on each redraw
+local discovery = {}
 function D.IsDiscovery(id)
+    local v = discovery[id]
+    if v == nil then
+        v = Discovery(id)
+        discovery[id] = v
+    end
+    return v
+end
+function Discovery(id)
     if not ns.isForever then return true end
     local what, row = D.Classify(id)
     if what == "unknown" or what == "withheld" then return true end

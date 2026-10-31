@@ -3,7 +3,7 @@
 ## Title: Forever Item Finder
 ## Notes: Finds new and changed WoW Forever items, shares them with other players, and keeps a searchable database of what drops where.
 ## Author: Arc
-## Version: 1.0.0
+## Version: 1.0.1
 ## IconTexture: Interface\AddOns\ForeverItemFinder\Media\FIF_Icon
 ## SavedVariables: ForeverItemFinderDB
 ## X-Curse-Project-ID: 1773037

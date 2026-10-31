@@ -38,43 +38,75 @@ local function Tracked()
     return out
 end
 
--- tracked items by client map: a record per spot, and one per dungeon entrance listing every item inside
-local function Build()
-    dirty = false
-    wipe(byMap)
-    if not ns.db or not ns.UI or not ns.UI.GameSpots then return end
-    local entrances = {}
-    for _, id in ipairs(Tracked()) do
-        local seen = {}
-        for _, s in ipairs(ns.UI.GameSpots(id)) do
-            local list = byMap[s.m]
-            if not list then
-                list = {}
-                byMap[s.m] = list
-            end
-            local key = s.m .. ":" .. s.x .. ":" .. s.y
+-- each item's map records, made once from its spots and kept: the item data never changes in play, and a find of the
+-- item drops them (FindsChanged). byMap holds its own spots by client map, gates its spots at dungeon entrances.
+local records = {}
+local function RecordsOf(id)
+    local c = records[id]
+    if c then return c end
+    c = { byMap = {}, gates = {} }
+    local seen = {}
+    for _, s in ipairs(ns.UI.GameSpots(id)) do
+        local key = s.m .. ":" .. s.x .. ":" .. s.y
+        if not seen[key] then
+            seen[key] = true
             if s.dungeon then
-                local g = entrances[key]
-                if not g then
-                    g = { m = s.m, x = s.x, y = s.y, dungeon = s.dungeon, look = s.look, items = {}, has = {} }
-                    entrances[key] = g
-                    list[#list + 1] = g
+                c.gates[#c.gates + 1] = s
+            else
+                local list = c.byMap[s.m]
+                if not list then
+                    list = {}
+                    c.byMap[s.m] = list
                 end
-                if not g.has[id] then
-                    g.has[id] = true
-                    g.items[#g.items + 1] = { id = id, entry = s.entry }
-                end
-            elseif not seen[key] then
-                seen[key] = true
                 list[#list + 1] = { m = s.m, x = s.x, y = s.y, id = id, look = s.look, entry = s.entry, who = s.who }
             end
         end
     end
-    -- an entrance holding one favorite is that favorite's own pin
-    for _, list in pairs(byMap) do
-        for _, r in ipairs(list) do
-            if r.items and #r.items == 1 then r.id, r.entry = r.items[1].id, r.items[1].entry end
+    records[id] = c
+    return c
+end
+
+-- tracked items by client map: a record per spot, and one per dungeon entrance listing every item inside; ix numbers
+-- the item for the pin thinning
+local zoneCache
+local function Build()
+    dirty = false
+    wipe(byMap)
+    zoneCache = nil
+    if not ns.db or not ns.UI or not ns.UI.GameSpots then return end
+    local entrances = {}
+    for ix, id in ipairs(Tracked()) do
+        local c = RecordsOf(id)
+        for m, recs in pairs(c.byMap) do
+            local list = byMap[m]
+            if not list then
+                list = {}
+                byMap[m] = list
+            end
+            for _, r in ipairs(recs) do
+                r.ix = ix
+                list[#list + 1] = r
+            end
         end
+        for _, s in ipairs(c.gates) do
+            local key = s.m .. ":" .. s.x .. ":" .. s.y
+            local g = entrances[key]
+            if not g then
+                g = { m = s.m, x = s.x, y = s.y, dungeon = s.dungeon, look = s.look, items = {}, ix = ix }
+                entrances[key] = g
+                local list = byMap[s.m]
+                if not list then
+                    list = {}
+                    byMap[s.m] = list
+                end
+                list[#list + 1] = g
+            end
+            g.items[#g.items + 1] = { id = id, entry = s.entry }
+        end
+    end
+    -- an entrance holding one favorite is that favorite's own pin
+    for _, g in pairs(entrances) do
+        if #g.items == 1 then g.id, g.entry = g.items[1].id, g.items[1].entry end
     end
 end
 
@@ -130,12 +162,16 @@ end
 
 -- an entrance with several favorites wears the entrance look and their count; any other pin the item's icon, or the
 -- window's dot for its source
+-- a pin keeps its look until what it shows changes: kind (1 icon, 2 entrance count, 3 dot), what (item, count, look),
+-- size, and styleGen (a refresh or an icon the game just sent); compared field by field, no key built per frame
+local styleGen = 0
 local function Style(p, r, size)
     local group = r.items ~= nil and #r.items > 1
     local icon = Look() == "icon" and not group
-    local key = (group and ("g" .. #r.items) or icon and ("i" .. r.id) or r.look) .. ":" .. size
-    if p.styled == key then return end
-    p.styled = key
+    local kind = icon and 1 or group and 2 or 3
+    local what = icon and r.id or group and #r.items or r.look
+    if p.sKind == kind and p.sWhat == what and p.sSize == size and p.sGen == styleGen then return end
+    p.sKind, p.sWhat, p.sSize, p.sGen = kind, what, size, styleGen
     if icon then
         p.glow:Hide()
         p.ring:Hide()
@@ -163,7 +199,7 @@ local function Style(p, r, size)
 end
 
 -- the World Map: pins on its canvas for the shown zone, undoing its zoom so they keep their size
-local worldPins, taken = {}, {}
+local worldPins, taken, kept, thinFor = {}, {}, {}, {}
 local hooked
 
 -- a continent shows a plate on each of its zones that holds tracked items (the favorites on the map and the Mark on
@@ -173,30 +209,44 @@ local hooked
 local BADGE_ICONS, BADGE_LIST = 3, 12
 local badges = {}
 
-local function ItemsByZone()
-    local by = {}
+-- the zones holding tracked items, worked out once per build (a zoom calls back on every step): their items by name,
+-- the spot a plate stands on, and the zone's map info, asked of the game once
+local function Zones()
+    if zoneCache then return zoneCache end
+    zoneCache = {}
+    local names = {}
+    local function Name(id)
+        local n = names[id]
+        if not n then
+            n = ns.UI.ItemLabel(id)
+            names[id] = n
+        end
+        return n
+    end
     for m, list in pairs(byMap) do
-        local z = { ids = {}, has = {} }
-        local sx, sy = 0, 0
-        for _, r in ipairs(list) do
-            sx, sy = sx + r.x, sy + r.y
-            for _, it in ipairs(r.items or { r }) do
-                if it.id and not z.has[it.id] then
-                    z.has[it.id] = true
-                    z.ids[#z.ids + 1] = it.id
+        if #list > 0 then
+            local z = { m = m, ids = {}, has = {} }
+            local sx, sy = 0, 0
+            for _, r in ipairs(list) do
+                sx, sy = sx + r.x, sy + r.y
+                for _, it in ipairs(r.items or { r }) do
+                    if it.id and not z.has[it.id] then
+                        z.has[it.id] = true
+                        z.ids[#z.ids + 1] = it.id
+                    end
                 end
             end
-        end
-        if #list > 0 then
             local ax, ay, best = sx / #list, sy / #list, nil
             for _, r in ipairs(list) do
                 local d = (r.x - ax) ^ 2 + (r.y - ay) ^ 2
                 if not best or d < best then best, z.x, z.y = d, r.x, r.y end
             end
-            by[m] = z
+            table.sort(z.ids, function(a, b) return Name(a) < Name(b) end)
+            z.info = C_Map.GetMapInfo and C_Map.GetMapInfo(m)
+            zoneCache[#zoneCache + 1] = z
         end
     end
-    return by
+    return zoneCache
 end
 
 local function BadgeTip(b)
@@ -235,8 +285,10 @@ local function NewBadge(parent)
     return b
 end
 
-local function FillBadge(b, ids)
-    table.sort(ids, function(x, y) return ns.UI.ItemLabel(x) < ns.UI.ItemLabel(y) end)
+local function FillBadge(b, z)
+    if b.z == z and b.gen == styleGen then return end
+    b.z, b.gen = z, styleGen
+    local ids = z.ids
     b.ids = ids
     local gap, k = U(2), math.min(#ids, BADGE_ICONS)
     for i, f in ipairs(b.faces) do
@@ -260,11 +312,11 @@ end
 
 local function LayBadges(canvas, mapID, scale, cw, ch)
     local n = 0
-    if mapID and C_Map.GetMapInfo and C_Map.GetMapRectOnMap then
-        for m, z in pairs(ItemsByZone()) do
-            local info = #z.ids > 0 and C_Map.GetMapInfo(m)
+    if mapID and C_Map.GetMapRectOnMap then
+        for _, z in ipairs(Zones()) do
+            local info = #z.ids > 0 and z.info
             if info and info.parentMapID == mapID then
-                local minX, maxX, minY, maxY = C_Map.GetMapRectOnMap(m, mapID)
+                local minX, maxX, minY, maxY = C_Map.GetMapRectOnMap(z.m, mapID)
                 if minX and maxX and minY and maxY then
                     n = n + 1
                     local b = badges[n]
@@ -273,7 +325,7 @@ local function LayBadges(canvas, mapID, scale, cw, ch)
                         badges[n] = b
                     end
                     b.zone = info.name
-                    FillBadge(b, z.ids)
+                    FillBadge(b, z)
                     b:SetFrameLevel(canvas:GetFrameLevel() + 1990)
                     b:SetScale(1 / scale)
                     -- the first icon sits on the spot, the rest run to its right
@@ -302,30 +354,45 @@ local function LayWorld()
     if canvas then cw, ch = canvas:GetWidth() * scale, canvas:GetHeight() * scale end
     LayBadges(canvas, mapID, scale, cw, ch)
     if list then
-        local cell = Look() == "icon" and U(ICON) or ns.UI.PinCell()
-        local cx, cy = cell / cw * 1000, cell / ch * 1000
-        wipe(taken)
-        for _, r in ipairs(list) do
-            -- one item's spots closer than a pin share it; other items keep their own
-            local key = (r.id or r.dungeon) .. ":" .. math.floor(r.x / cx) .. ":" .. math.floor(r.y / cy)
-            if r.items and #r.items > 1 then key = r end
-            if not taken[key] then
-                taken[key] = true
-                n = n + 1
-                local p = worldPins[n]
-                if not p then
-                    p = NewPin(canvas)
-                    worldPins[n] = p
+        -- thinned again only when the zoom crosses a step of a quarter: a zoom animation calls back on every frame, and
+        -- between steps the same pins only move. The step rounds down, so the pins are never thinned finer than the zoom
+        -- shows them (no two overlap)
+        local q = math.floor(math.log(scale) / math.log(1.25) + 1e-9)
+        local w, h = canvas:GetWidth(), canvas:GetHeight()
+        if thinFor.list ~= list or thinFor.q ~= q or thinFor.gen ~= styleGen or thinFor.w ~= w or thinFor.h ~= h then
+            thinFor.list, thinFor.q, thinFor.gen, thinFor.w, thinFor.h = list, q, styleGen, w, h
+            local qs = 1.25 ^ q
+            local cell = Look() == "icon" and U(ICON) or ns.UI.PinCell()
+            local cx, cy = cell / (w * qs) * 1000, cell / (h * qs) * 1000
+            wipe(taken)
+            wipe(kept)
+            for _, r in ipairs(list) do
+                -- one item's spots closer than a pin share it; other items keep their own (a number key, no text made
+                -- per spot)
+                local key = r
+                if not (r.items and #r.items > 1) then key = r.ix * 1e12 + math.floor(r.x / cx) * 1e6 + math.floor(r.y / cy) end
+                if not taken[key] then
+                    taken[key] = true
+                    kept[#kept + 1] = r
                 end
-                p.rec, p.m, p.x, p.y = r, r.m, r.x, r.y
-                Style(p, r, U(ICON))
-                -- under the pins Show on World Map puts there
-                p:SetFrameLevel(canvas:GetFrameLevel() + 1990)
-                p:SetScale(1 / scale)
-                p:ClearAllPoints()
-                p:SetPoint("CENTER", canvas, "TOPLEFT", r.x / 1000 * cw, -r.y / 1000 * ch)
-                p:Show()
             end
+        end
+        local size = U(ICON)
+        for _, r in ipairs(kept) do
+            n = n + 1
+            local p = worldPins[n]
+            if not p then
+                p = NewPin(canvas)
+                worldPins[n] = p
+            end
+            p.rec, p.m, p.x, p.y = r, r.m, r.x, r.y
+            Style(p, r, size)
+            -- under the pins Show on World Map puts there
+            p:SetFrameLevel(canvas:GetFrameLevel() + 1990)
+            p:SetScale(1 / scale)
+            p:ClearAllPoints()
+            p:SetPoint("CENTER", canvas, "TOPLEFT", r.x / 1000 * cw, -r.y / 1000 * ch)
+            p:Show()
         end
     end
     for i = n + 1, #worldPins do worldPins[i]:Hide() end
@@ -378,12 +445,28 @@ local function MiniUpdate()
         HideMini()
         return
     end
-    local perYard = w / ((indoor and INDOOR or OUTDOOR)[zoom + 1] or OUTDOOR[1])
+    local yards = (indoor and INDOOR or OUTDOOR)[zoom + 1] or OUTDOOR[1]
+    local perYard = w / yards
     local edge = w / 2 - U(MINI_ICON) / 2
     local square = GetMinimapShape and GetMinimapShape() == "SQUARE"
     local cs, sn = math.cos(facing), math.sin(facing)
+    -- only the spots within reach: gathered again when the player has walked a quarter of the minimap's width from
+    -- where they were gathered, or the zoom changed (a zone can hold thousands of spots; a frame looks at a few)
+    local reach = yards * 0.75
+    local dx, dy = ((z.nearX or -1e9) - mx) * z.wide, ((z.nearY or -1e9) - my) * z.tall
+    if z.nearYards ~= yards or dx * dx + dy * dy > (yards / 4) ^ 2 then
+        z.nearX, z.nearY, z.nearYards = mx, my, yards
+        local near = z.near
+        wipe(near)
+        local far = (reach + yards / 4) ^ 2
+        for _, r in ipairs(z.list) do
+            local east, north = (r.x / 1000 - mx) * z.wide, (my - r.y / 1000) * z.tall
+            if east * east + north * north <= far then near[#near + 1] = r end
+        end
+    end
     local n = 0
-    for _, r in ipairs(z.list) do
+    local size = U(MINI_ICON)
+    for _, r in ipairs(z.near) do
         local east, north = (r.x / 1000 - mx) * z.wide, (my - r.y / 1000) * z.tall
         -- a turning minimap keeps the player's facing up: the spots turn the other way
         if rotate then east, north = east * cs + north * sn, north * cs - east * sn end
@@ -399,7 +482,7 @@ local function MiniUpdate()
                 miniPins[n] = p
             end
             p.rec = r
-            Style(p, r, U(MINI_ICON))
+            Style(p, r, size)
             p:SetFrameLevel(Minimap:GetFrameLevel() + 5)
             p:ClearAllPoints()
             p:SetPoint("CENTER", Minimap, "CENTER", sx, sy)
@@ -425,7 +508,7 @@ local function SetupMini()
         local bx, by = ey and o and ey.x - o.x, ey and o and ey.y - o.y
         local det = ax and bx and (ax * by - ay * bx)
         if det and det ~= 0 and wide and wide > 0 and tall and tall > 0 then
-            local z = { map = m, list = list, wide = wide, tall = tall, ox = o.x, oy = o.y,
+            local z = { map = m, list = list, near = {}, wide = wide, tall = tall, ox = o.x, oy = o.y,
                 c1 = by / det, c2 = -bx / det, c3 = -ay / det, c4 = ax / det }
             -- checked once against the game's own reading; the other order of the two numbers, else the game's reading
             local pos = C_Map.GetPlayerMapPosition(m, "player")
@@ -599,8 +682,7 @@ F.SyncMapButton = SyncMapButton
 
 function F.Refresh()
     dirty = true
-    for _, p in ipairs(worldPins) do p.styled = nil end
-    for _, p in ipairs(miniPins) do p.styled = nil end
+    styleGen = styleGen + 1
     Hook()
     LayWorld()
     SetupMini()
@@ -615,12 +697,36 @@ end)
 local function IsTracked(id)
     return id ~= nil and ns.db ~= nil and ((ns.db.favorites and ns.db.favorites[id]) or (ns.WorldPins and ns.WorldPins.Marked() == id))
 end
+-- events in bursts (the game sends every favorite's item data at once after login or a reveal; finds arrive from the
+-- network) cost one redraw on the next frame, not one each
+local soon, rebuild
+local function Later()
+    if soon then return end
+    soon = true
+    C_Timer.After(0, function()
+        soon = false
+        if rebuild then
+            rebuild = false
+            F.Refresh()
+        else
+            styleGen = styleGen + 1
+            zoneCache = nil
+            LayWorld()
+            wipe(last)
+        end
+    end)
+end
+-- a find of a tracked item can bring a new spot: its records are made again
 ns.Listen("FindsChanged", function(e)
-    if e and IsTracked(e.id) then F.Refresh() end
+    if e and IsTracked(e.id) then
+        records[e.id] = nil
+        rebuild = true
+        Later()
+    end
 end)
--- an icon the game had not sent yet
+-- an icon or name the game had not sent yet: the pins take it, nothing is rebuilt
 ns.On("GET_ITEM_INFO_RECEIVED", function(id)
-    if IsTracked(id) then F.Refresh() end
+    if IsTracked(id) then Later() end
 end)
 ns.On("ADDON_LOADED", function(name)
     if name == "Blizzard_WorldMap" then Hook() end

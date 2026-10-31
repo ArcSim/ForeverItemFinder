@@ -2,7 +2,7 @@
 // Everything players send comes back through textContent only, never as markup.
 import { decodeShare } from './share.js';
 import { CHIPS, match, rowsOf, catParts } from './filter.js';
-import { WhereBlock } from './map.js';
+import { WhereBlock, sharedSource } from './map.js';
 
 const $ = (id) => document.getElementById(id);
 function el(tag, props, ...kids) {
@@ -297,13 +297,11 @@ async function showItem(id) {
       return;
     }
     const n = f.sharers;
-    foundDd.textContent = `By ${f.find.by || 'Anonymous'}${f.find.found_at ? ', ' + day(f.find.found_at) : ''}, ${n} ${n === 1 ? 'player' : 'players'}`;
+    foundDd.textContent = `${f.find.found_at ? day(f.find.found_at) + ', ' : ''}${n} ${n === 1 ? 'player' : 'players'}`;
     if (f.sources.length === 0) shared.append(el('p', { class: 'note' }, `Shared by ${n} ${n === 1 ? 'player' : 'players'}.`));
     for (const s of f.sources) {
-      const spot = s.x !== null && s.y !== null ? `${(s.x / 10).toFixed(1)}, ${(s.y / 10).toFixed(1)}` : '';
-      shared.append(el('div', { class: 'where' }, el('div', {},
-        el('span', {}, [s.n, s.lv > 0 ? `(${s.lv})` : null].filter(Boolean).join(' ') || 'Found'),
-        el('span', {}, [s.z, spot].filter(Boolean).join(' ')))));
+      const t = sharedSource(s, d.map, meta.zones || {});
+      shared.append(el('div', { class: 'where' }, el('div', {}, el('span', {}, t.who), el('span', {}, t.where))));
     }
   } catch {
     shared.replaceChildren(el('p', { class: 'note' }, 'Shared finds could not be loaded right now.'));
@@ -366,7 +364,7 @@ function latestRow(f) {
   const row = known ? { ...known } : { id: f.id, name: `Item ${f.id}`, q: f.q ?? -1, kind: f.k, req: 0, dungeon: '', zones: '' };
   const e = rowEl(row, () => { location.hash = 'item/' + f.id; });
   e.querySelector('.sub')?.remove();
-  e.append(el('span', { class: 'sub' }, [`By ${f.by || 'Anonymous'}`, day(f.found_at), f.z,
+  e.append(el('span', { class: 'sub' }, [day(f.found_at), (meta.zones || {})[f.m],
     `${f.sharers} ${f.sharers === 1 ? 'player' : 'players'}`].filter(Boolean).join(' · ')));
   return e;
 }

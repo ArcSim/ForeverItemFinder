@@ -295,6 +295,7 @@ end
 -- the feed: finds that pass the saved find filter (Data.lua D.FindPasses), newest first, plus one quiet row for
 -- datamined additions while nothing is filtered; feedKinds counts what the New / Changed chips would show
 local feedKinds = { n = 0, c = 0 }
+local feedRows = setmetatable({}, { __mode = "k" })
 local function FeedData()
     local data = {}
     local f = Settings().findFilter
@@ -314,8 +315,14 @@ local function FeedData()
             local k = e.k == "c" and "c" or "n"
             feedKinds[k] = feedKinds[k] + 1
             if f.kinds[k] then
-                table.insert(data, { id = e.id, q = e.q, name = e.nm or C_Item.GetItemInfo(e.id), icon = ItemIcon(e.id), kind = e.k,
-                    line = FindLine(e), status = Status(e), when = ShortDate(e.at) })
+                -- a find's row is made again only when the find changed, or while the game has not sent its name or icon
+                local row = feedRows[e]
+                if not row or row.v ~= e.v or not row.name or row.icon == 134400 then
+                    row = { id = e.id, q = e.q, name = e.nm or C_Item.GetItemInfo(e.id), icon = ItemIcon(e.id), kind = e.k,
+                        line = FindLine(e), status = Status(e), when = ShortDate(e.at), v = e.v }
+                    feedRows[e] = row
+                end
+                table.insert(data, row)
             end
         end
     end
@@ -323,14 +330,31 @@ local function FeedData()
     return data
 end
 
--- the Live Feed tab's number: the finds the feed is about (discoveries, while its filter keeps to them)
+-- the Live Feed tab's number: the finds the feed is about (discoveries, while its filter keeps to them); and how many
+-- of them came from other players since the feed was last looked at (while away, or while the window showed no feed)
 local function FeedCount()
     local all = not Settings().findFilter.discoveries
-    local n = 0
+    local seen = ns.db.feedSeenAt or 0
+    local n, new = 0, 0
     for _, e in ipairs(ns.Finds.List()) do
-        if AfterClear(e) and (all or e.demo or D.IsDiscovery(e.id)) then n = n + 1 end
+        if AfterClear(e) and (all or e.demo or D.IsDiscovery(e.id)) then
+            n = n + 1
+            if (e.got or 0) > seen then new = new + 1 end
+        end
     end
-    return n
+    return n, new
+end
+
+function UI.FeedNew()
+    if not ns.db then return 0 end
+    local _, new = FeedCount()
+    return new
+end
+
+-- the feed was looked at: its count starts again from now
+local function FeedSeen()
+    ns.db.feedSeenAt = ns.Now()
+    ns.Signal("FeedSeen")
 end
 
 function UI.MinedRow(n)
@@ -1956,6 +1980,7 @@ local function Build()
     win:SetScript("OnHide", function()
         T.CloseList()
         HideCard()
+        if tab == "feed" then FeedSeen() end
         ns.Signal("WindowHidden")
     end)
 
@@ -2496,13 +2521,36 @@ function UI.RefreshOptions()
     end
 end
 
+-- the feed's rows, chips, count and empty line; true when it picked the first row to show
+local function FillFeed()
+    local data = FeedData()
+    UI.feedList:SetData(data)
+    local f = Settings().findFilter
+    UI.feedFilter:Sync()
+    local shown = (f.kinds.n and feedKinds.n or 0) + (f.kinds.c and feedKinds.c or 0)
+    UI.feedCount:SetText(shown .. (shown == 1 and " find" or " finds"))
+    for _, chip in ipairs(UI.feedKinds) do
+        chip:SetLabel(chip.text .. " " .. feedKinds[chip.key])
+        chip:SetOn(f.kinds[chip.key])
+    end
+    UI.feedEmpty:SetText((Filtered(f) and "No finds match.") or (ns.db.feedClearedAt and "Feed cleared. New finds show up here.") or
+        "Nothing new yet. Items you and other players find show up here.")
+    UI.feedEmpty:SetShown(#data == 0)
+    if not selected and data[1] and data[1].id then
+        selected = data[1].id
+        UI.feedList:Refresh()
+        return true
+    end
+end
+
 -- refresh everything that shows
 function UI.Refresh()
     if not win or not win:IsShown() then dirty = true return end
     dirty = false
     local feedOn, dbOn, optOn, setOn = tab == "feed", tab == "db", tab == "options", tab == "settings"
     local mined = UI.NewDatamined()
-    UI.tabs.feed:Set("Live Feed (" .. FeedCount() .. ")", feedOn)
+    local feedN, feedNew = FeedCount()
+    UI.tabs.feed:Set("Live Feed (" .. feedN .. ")", feedOn, feedNew > 0 and (feedNew .. " NEW") or nil)
     UI.tabs.db:Set("Item Database", dbOn, mined > 0 and (mined .. " NEW") or nil)
     UI.tabs.options:Set("Pop-up Options", optOn)
     UI.tabs.settings:Set("Settings", setOn)
@@ -2518,20 +2566,7 @@ function UI.Refresh()
     UI.detailPane:SetPoint("BOTTOMRIGHT", -1, 1)
     UI.detailPane:SetPoint("LEFT", feedOn and UI.feedPane or UI.dbPane, "RIGHT", 0, 0)
     if feedOn then
-        local data = FeedData()
-        UI.feedList:SetData(data)
-        local f = Settings().findFilter
-        UI.feedFilter:Sync()
-        local shown = (f.kinds.n and feedKinds.n or 0) + (f.kinds.c and feedKinds.c or 0)
-        UI.feedCount:SetText(shown .. (shown == 1 and " find" or " finds"))
-        for _, chip in ipairs(UI.feedKinds) do
-            chip:SetLabel(chip.text .. " " .. feedKinds[chip.key])
-            chip:SetOn(f.kinds[chip.key])
-        end
-        UI.feedEmpty:SetText((Filtered(f) and "No finds match.") or (ns.db.feedClearedAt and "Feed cleared. New finds show up here.") or
-            "Nothing new yet. Items you and other players find show up here.")
-        UI.feedEmpty:SetShown(#data == 0)
-        if not selected and data[1] and data[1].id then selected = data[1].id UI.feedList:Refresh() end
+        FillFeed()
     elseif dbOn then
         local refs = DbData()
         UI.DbListSet(refs)
@@ -2559,6 +2594,24 @@ function UI.Refresh()
         for _, c in ipairs(set.controls or {}) do c:Refresh() end
     end
     if not optOn and not setOn then ShowDetail(selected) end
+    UI.RefreshFooter()
+end
+
+-- finds coming in (a catch-up after login brings hundreds, a few a second): the tab count and the feed take them in;
+-- the database shows them on the rows in view and refilters on the player's next click (the costly part), and the
+-- detail side redraws only for the item it shows
+local function RefreshFinds(touched)
+    if not win or not win:IsShown() then dirty = true return end
+    local feedN, feedNew = FeedCount()
+    UI.tabs.feed:Set("Live Feed (" .. feedN .. ")", tab == "feed", feedNew > 0 and (feedNew .. " NEW") or nil)
+    if tab == "feed" then
+        if FillFeed() then touched = true end
+    elseif tab == "db" then
+        local list = UI.dbList
+        for i = list.offset + 1, math.min(#list.data, list.offset + 40) do list.data[i] = false end
+        list:Refresh()
+    end
+    if touched and (tab == "feed" or tab == "db") then ShowDetail(selected) end
     UI.RefreshFooter()
 end
 
@@ -2635,6 +2688,8 @@ end
 
 function UI.Show(which)
     if not win then Build() end
+    -- leaving the feed: what it showed counts as seen
+    if which and which ~= "feed" and tab == "feed" and win:IsShown() then FeedSeen() end
     tab = which or tab
     if tab == "db" and ns.db then
         ns.db.seedVersion, ns.db.demoMined = D.version, nil
@@ -2739,10 +2794,19 @@ end
 
 -- what makes the window redraw
 local queued
-local function Soon()
+-- a lone find shows within a moment; a stream of them redraws at most every FINDS_GAP seconds
+local FINDS_GAP = 2
+local full, touched, lastFinds = false, false, -FINDS_GAP
+local function Soon(e)
+    if not e then full = true elseif e.id == selected then touched = true end
     if queued then return end
     queued = true
-    C_Timer.After(0.2, function() queued = false UI.Refresh() end)
+    C_Timer.After(math.max(0.2, lastFinds + FINDS_GAP - GetTime()), function()
+        queued, lastFinds = false, GetTime()
+        local all, mine = full, touched
+        full, touched = false, false
+        if all then UI.Refresh() else RefreshFinds(mine) end
+    end)
 end
 ns.Listen("FindsChanged", Soon)
 ns.Listen("SyncState", function() UI.RefreshFooter() end)

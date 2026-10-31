@@ -93,6 +93,8 @@ function F.Record(info)
             status = status or "updated"
         end
     end
+    -- when another player's find reached this copy, for the Live Feed's count of finds not looked at yet
+    if (status == "new" or status == "changed") and not info.mine then e.got = ns.Now() end
     if status then
         e.v = ns.Now()
         sorted = nil
@@ -108,6 +110,18 @@ end
 
 function F.Reporters(e)
     return e and Count(e.rp or {}) or 0
+end
+
+-- reporters other than this player (its own sightings are keyed by its name, with or without the realm)
+function F.OthersReporting(e, me)
+    if not e or not e.rp then return 0 end
+    local short = type(me) == "string" and me:match("^[^-]+") or me
+    local a, b = F.ReporterKey(me), F.ReporterKey(short)
+    local n = 0
+    for key in pairs(e.rp) do
+        if key ~= a and key ~= b then n = n + 1 end
+    end
+    return n
 end
 
 -- the oldest finds nobody confirmed go first, never this player's own
@@ -181,6 +195,18 @@ function F.CountSince(t, after)
         if e.v > t and id > (after or 0) and not e.demo then n = n + 1 end
     end
     return n
+end
+
+-- this player's finds announced when no other copy seemed to be listening (Sync marks them uh), at most limit; also
+-- how many more are left
+function F.Unheard(limit)
+    local out, left = {}, 0
+    for _, e in pairs(db or {}) do
+        if e.uh and not e.demo then
+            if #out < limit then out[#out + 1] = e else left = left + 1 end
+        end
+    end
+    return out, left
 end
 
 -- one catch-up page: finds changed after a time with an item id above after, by item id (the same order on every

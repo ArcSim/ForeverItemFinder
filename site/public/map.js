@@ -86,6 +86,20 @@ export function zoomAt(v, cx, cy, k) {
   return view(z, v.vx + cx / v.z - cx / z, v.vy + cy / v.z - cy / z);
 }
 
+// a source players shared, in words built from ids alone (a paste's typed names are never kept): the creature's name
+// from the item's own entries, else the kind of source; the zone from the page's map names
+const SHARED_KIND = { l: 'Looted', v: 'A vendor', q: 'A quest', r: 'Group loot', c: "Another player's loot", x: 'From a container',
+  o: 'An object' };
+export function sharedSource(s, entries, names) {
+  let who = SHARED_KIND[s.t] || 'Found';
+  if (s.npc) {
+    const e = (entries || []).find((x) => x.s === 'n' + s.npc && x.w && x.w[0]);
+    if (e) who = e.w[0];
+  }
+  const spot = Number.isFinite(s.x) && Number.isFinite(s.y) ? `${(s.x / 10).toFixed(1)}, ${(s.y / 10).toFixed(1)}` : '';
+  return { who: [who, s.lv > 0 ? `(${s.lv})` : null].filter(Boolean).join(' '), where: [names[s.m], spot].filter(Boolean).join(' ') };
+}
+
 // the short spot a source line ends with: coordinates for one spot on the map, a count for several, the zone of its
 // first spot when none is on the map, nothing for a world drop (its pins are a few of many)
 export function spotText(entry, pins, shown, names) {
