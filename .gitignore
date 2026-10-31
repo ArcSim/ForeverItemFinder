@@ -1,2 +1,7 @@
 site/.wrangler/
 node_modules/
+DevMaps/
+# the website's generated data and pictures: rebuilt by site/build_data.lua, fetch_maps.js and fetch_icons.js
+site/public/data/
+site/public/maps/
+site/public/icons/

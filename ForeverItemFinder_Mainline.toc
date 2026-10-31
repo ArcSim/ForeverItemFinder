@@ -1,0 +1,30 @@
+## Interface: 120105, 120107
+## Title: Forever Item Finder
+## Notes: Finds new and changed WoW Forever items, shares them with other players, and keeps a searchable database of what drops where.
+## Author: Arc
+## Version: 1.0.0
+## IconTexture: Interface\AddOns\ForeverItemFinder\Media\FIF_Icon
+## SavedVariables: ForeverItemFinderDB
+
+Data\Items.lua
+Data\MapOverlays.lua
+Data\RetailMaps.lua
+#@debug@
+DevMaps\DevMaps.lua
+#@end-debug@
+Core.lua
+#@debug@
+Dev.lua
+#@end-debug@
+Data.lua
+Finds.lua
+Proto.lua
+Sync.lua
+Detect.lua
+Theme.lua
+Popup.lua
+UI.lua
+WorldPins.lua
+FavPins.lua
+Tooltip.lua
+Minimap.lua

@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forever Item Finder</title>
+<meta name="description" content="Every new and changed item in World of Warcraft: Forever: search the database, see where items drop, and share what you find.">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #15110D; --panel: #221A11; --head: #2A1F14; --inset: #0F0C09; --line: #4A3A22; --frame: #8A6B2A;
+    --gold: #C9A23A; --title: #FFD100; --ink: #E8DCC0; --dim: #BFAE8C; --faint: #8C7A58;
+    --red: #7E1212; --red-hi: #962020; --red-edge: #3A0808; --red-top: #B23A2A; --lit: #2A2117;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--bg); }
+  body { margin: 0; background: radial-gradient(ellipse at top, #2A1F14 0%, var(--bg) 55%) no-repeat, var(--bg); color: var(--ink);
+    font: 16px/1.5 'Barlow', 'Segoe UI', sans-serif; }
+  a { color: var(--title); }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
+  header.top { display: flex; align-items: center; gap: 14px; padding: 18px 0 14px; flex-wrap: wrap; }
+  header.top .home-link { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 220px; text-decoration: none; }
+  header.top img { width: 52px; height: 52px; border-radius: 4px; }
+  header.top h1 { font-family: 'Cinzel', Georgia, serif; color: var(--title); font-size: 26px; margin: 0; }
+  /* home */
+  .hero { text-align: center; padding: 52px 0 30px; }
+  .hero img { width: 148px; height: 148px; border-radius: 6px; box-shadow: 0 8px 28px #000; }
+  .hero h1 { font: 700 44px/1.1 'Cinzel', Georgia, serif; color: var(--title); margin: 22px 0 8px; letter-spacing: 0.5px; }
+  .hero .tag { color: var(--dim); font-size: 19px; max-width: 620px; margin: 0 auto 26px; }
+  .hero .buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn.big { height: 46px; padding: 0 24px; font-size: 17px; }
+  .hero .stats { color: var(--dim); margin: 16px 0 4px; min-height: 24px; }
+  .hero .links { margin: 0; font-size: 15px; color: var(--faint); }
+  .home > .box { margin-bottom: 24px; }
+  .ways { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .way { background: var(--inset); border: 1px solid var(--line); border-radius: 4px; padding: 16px; display: flex; flex-direction: column; }
+  .way h3 { margin: 0 0 6px; color: var(--title); font-size: 18px; font-weight: 600; }
+  .way p { margin: 0 0 14px; flex: 1; }
+  .way .btn { align-self: flex-start; }
+  ul.list { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 24px; }
+  ul.list li { padding-left: 18px; position: relative; }
+  ul.list li::before { content: ""; position: absolute; left: 0; top: 10px; width: 7px; height: 7px; background: var(--gold); transform: rotate(45deg); }
+  ul.list b { color: var(--title); font-weight: 600; }
+  code { background: var(--inset); border: 1px solid var(--line); border-radius: 3px; padding: 1px 6px; color: var(--title); }
+  .seeall { margin: 10px 0 0; text-align: right; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 0 16px; border: 1px solid var(--red-edge);
+    border-top-color: var(--red-top); border-radius: 4px; background: var(--red); color: var(--title); font: 600 15px 'Barlow', sans-serif;
+    text-decoration: none; cursor: pointer; }
+  .btn:hover { background: var(--red-hi); }
+  .btn.quiet { background: var(--panel); border-color: var(--line); border-top-color: var(--frame); }
+  .btn.quiet:hover { background: #2E2317; }
+  .btn:disabled { opacity: 0.45; cursor: default; }
+  nav.tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--frame); margin-bottom: 16px; flex-wrap: wrap; }
+  nav.tabs a { padding: 8px 16px; color: var(--dim); text-decoration: none; border: 1px solid transparent; border-bottom: none;
+    border-radius: 4px 4px 0 0; font-weight: 600; }
+  nav.tabs a.on { color: var(--title); background: var(--panel); border-color: var(--frame); margin-bottom: -1px; }
+  .box { background: var(--panel); border: 1px solid var(--frame); border-radius: 6px; overflow: hidden; }
+  .box > h2 { margin: 0; padding: 10px 16px; font: 700 18px 'Cinzel', Georgia, serif; color: var(--title); background: var(--head);
+    border-bottom: 1px solid var(--line); }
+  .box .body { padding: 14px 16px 16px; }
+  .hidden { display: none !important; }
+  /* database */
+  .db { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+  .db-body { display: grid; grid-template-columns: 172px minmax(0, 1fr); gap: 10px; align-items: start; }
+  .cats { border: 1px solid var(--line); border-radius: 3px; background: var(--inset); padding: 4px 0; }
+  .cat { display: flex; justify-content: space-between; gap: 6px; width: 100%; box-sizing: border-box; padding: 3px 8px; border: 0;
+    background: none; color: var(--title); font: 600 14px 'Barlow', sans-serif; text-align: left; cursor: pointer; }
+  .cat.sub { padding-left: 18px; color: var(--ink); font-weight: 500; font-size: 13px; }
+  .cat:hover { background: var(--lit); }
+  .cat.on { background: #3B2F1C; color: #FFFFFF; }
+  .cat .n { color: var(--dim); font-weight: 500; font-size: 12px; }
+  @media (max-width: 760px) {
+    .db-body { grid-template-columns: minmax(0, 1fr); }
+    .cats { max-height: 190px; overflow-y: auto; }
+  }
+  .filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
+  input, select, textarea { background: var(--inset); color: var(--ink); border: 1px solid var(--line); border-radius: 3px;
+    font: 15px 'Barlow', sans-serif; padding: 7px 9px; min-width: 0; width: 100%; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--gold); }
+  .search { margin-bottom: 8px; font-size: 16px; }
+  .levels { display: flex; gap: 8px; align-items: center; color: var(--dim); grid-column: 1 / -1; }
+  .levels input { width: 130px; }
+  .count { color: var(--dim); font-size: 14px; margin: 4px 0 8px; }
+  .rows { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+  .row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 2px 10px; padding: 7px 10px; border-bottom: 1px solid var(--line);
+    cursor: pointer; align-items: center; }
+  .row:hover, .row.on { background: var(--lit); }
+  .row.on { box-shadow: inset 3px 0 0 var(--gold); }
+  .row .icon { grid-row: 1 / span 2; }
+  .row .nm { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row .sub { color: var(--dim); font-size: 14px; grid-column: 2 / -1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row.starred { grid-template-columns: auto auto minmax(0, 1fr) auto; padding-left: 4px; }
+  .row.starred .sub { grid-column: 3 / -1; }
+  .rstar { grid-row: 1 / span 2; width: 30px; height: 30px; padding: 5px; margin-right: -4px; background: none; border: 0; cursor: pointer; }
+  .rstar svg { width: 100%; height: 100%; fill: none; stroke: var(--dim); stroke-width: 1.6; }
+  .rstar:hover svg { stroke: var(--title); }
+  .rstar.on svg { fill: var(--title); stroke: var(--title); }
+  .icon { display: inline-flex; flex: none; border: 1px solid var(--line); border-radius: 3px; background: var(--inset); overflow: hidden; }
+  .icon img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .icon .qmark { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; color: #D9A33A;
+    font: 700 1em Georgia, 'Times New Roman', serif; text-shadow: 0 1px 2px #000; background: radial-gradient(circle, #2A1F14, #0F0C09); }
+  .head-btns { display: flex; gap: 6px; align-items: center; }
+  .wh { height: 34px; box-sizing: border-box; display: inline-flex; align-items: center; padding: 0 10px; background: var(--inset);
+    border: 1px solid var(--line); border-radius: 4px; color: var(--title); font: 600 14px 'Barlow', sans-serif; text-decoration: none; }
+  .wh:hover { border-color: var(--gold); background: #2E2317; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 8px; }
+  .kind { background: var(--inset); color: var(--dim); border: 1px solid var(--line); border-radius: 12px; padding: 4px 12px;
+    font: 600 14px 'Barlow', sans-serif; cursor: pointer; }
+  .kind:hover { color: var(--ink); }
+  .kind.on { color: var(--title); border-color: var(--gold); background: #2E2317; }
+  .item-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: start; margin-bottom: 12px; }
+  .item-head .req { margin-bottom: 0; }
+  .star { width: 34px; height: 34px; padding: 5px; background: var(--inset); border: 1px solid var(--line); border-radius: 4px; cursor: pointer; }
+  .star svg { width: 100%; height: 100%; fill: none; stroke: var(--dim); stroke-width: 1.6; }
+  .star:hover svg { stroke: var(--title); }
+  .star.on { border-color: var(--gold); background: #2E2317; }
+  .star.on svg { fill: var(--title); stroke: var(--title); }
+  .tt { position: fixed; z-index: 50; max-width: 340px; pointer-events: none; background: #0B0F1C; border: 1px solid #5A6478;
+    border-radius: 4px; padding: 8px 10px; font-size: 14px; line-height: 1.45; box-shadow: 0 6px 18px #000; }
+  .tt div { display: flex; justify-content: space-between; gap: 12px; }
+  /* the game's blank lines and indented set pieces keep their spaces */
+  .tt div span, .tip div span { white-space: pre-wrap; }
+  .tt .tt-head { justify-content: flex-start; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 15px; }
+  .chip { font-size: 12px; font-weight: 600; padding: 1px 7px; border-radius: 8px; border: 1px solid var(--line); color: var(--dim);
+    align-self: center; white-space: nowrap; }
+  .chip.n { color: #7DCB4F; border-color: #3E5E2A; } .chip.c, .chip.h { color: #FF9A3A; border-color: #6A4220; }
+  .chip.x { color: #B57CFF; border-color: #4B3170; } .chip.u { color: #A8A08E; border-color: #4F483C; }
+  .more { margin: 10px auto 0; display: flex; }
+  .empty { color: var(--dim); padding: 18px 4px; }
+  /* item */
+  .item h3 { margin: 0 0 2px; font-size: 22px; font-weight: 600; }
+  .item .line { color: var(--dim); }
+  .item .req { margin-bottom: 12px; }
+  .facts { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 4px 10px; margin: 0 0 14px; }
+  .facts dt { color: var(--dim); } .facts dd { margin: 0; }
+  .item h4 { margin: 14px 0 6px; font: 700 15px 'Cinzel', Georgia, serif; color: var(--title); }
+  .where div, .where > button { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; border-bottom: 1px dashed var(--line); }
+  .where span:last-child { color: var(--dim); white-space: nowrap; }
+  .where .l { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .where .l > .t { color: inherit; white-space: normal; }
+  .where.picks > div, .where.picks > button { padding: 3px 6px; }
+  .where.picks .l > .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .where > button { width: 100%; border: 0; border-bottom: 1px dashed var(--line); background: transparent; color: var(--ink);
+    font: 16px/1.5 'Barlow', sans-serif; text-align: left; cursor: pointer; }
+  .where > button.on { background: var(--lit); }
+  .where .dot { display: inline-block; flex: none; width: 8px; height: 8px; border-radius: 50%; }
+  /* the map: the zone's art, pins grouped per pin width at the zoom, zone chips or the caption, zoom buttons, the card */
+  .map { position: relative; box-sizing: border-box; width: 100%; aspect-ratio: 1002 / 668; overflow: hidden; margin-bottom: 8px;
+    border: 1px solid var(--line); border-radius: 3px; background: var(--inset); cursor: grab; user-select: none; touch-action: pan-y; }
+  .map.dragging { cursor: grabbing; }
+  .map .art { position: absolute; left: 0; top: 0; width: 100%; height: 100%; transform-origin: 0 0; pointer-events: none; }
+  .map .pins { position: absolute; inset: 0; }
+  .map .pin { position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; padding: 0; border: 0; background: transparent;
+    display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .map .pin span { display: block; box-sizing: border-box; border-radius: 50%; pointer-events: none; }
+  .map .pin[hidden], .map .cap[hidden] { display: none; }
+  .map .zchips { position: absolute; left: 6px; top: 6px; right: 6px; display: flex; flex-wrap: wrap; gap: 4px; pointer-events: none; }
+  .map .zchips > * { pointer-events: auto; }
+  .map .zchip { font: 600 13px 'Barlow', sans-serif; padding: 1px 10px; border-radius: 12px; cursor: pointer; color: var(--dim);
+    border: 1px solid var(--line); background: var(--inset); white-space: nowrap; }
+  .map .zchip.on { color: var(--title); border-color: var(--gold); background: #2E2317; }
+  .map select.zchip { width: auto; min-width: 0; padding: 1px 6px 1px 10px; }
+  .map .zprobe { position: absolute; visibility: hidden; }
+  .map .cap { position: absolute; left: 8px; top: 5px; font: 600 14px 'Barlow', sans-serif; color: var(--title);
+    text-shadow: 1px 1px 0 #000, 0 0 3px #000; pointer-events: none; }
+  .map .zoom { position: absolute; right: 6px; bottom: 6px; display: flex; gap: 4px; }
+  .map .zoom button { width: 28px; height: 26px; padding: 0; background: var(--inset); border: 1px solid var(--line); border-radius: 4px;
+    color: var(--title); font: 600 16px 'Barlow', sans-serif; cursor: pointer; }
+  .map .zoom .reset { width: auto; padding: 0 8px; font-size: 13px; }
+  .map .card { position: absolute; z-index: 5; width: 210px; box-sizing: border-box; pointer-events: none; background: #0B0F1C;
+    border: 1px solid #5A6478; border-radius: 4px; padding: 8px 10px; font-size: 14px; line-height: 1.45; box-shadow: 0 6px 18px #000; }
+  .map .card .cn { color: #FFFFFF; font-weight: 600; font-size: 15px; }
+  .map .card .cl { color: var(--title); }
+  .map .card .cp { color: var(--dim); }
+  .tip { background: #0B0F1C; border: 1px solid #5A6478; border-radius: 4px; padding: 10px 12px; font-size: 14px; line-height: 1.45; }
+  .tip div { display: flex; justify-content: space-between; gap: 12px; }
+  .note { color: var(--faint); font-size: 14px; }
+  /* share */
+  .steps { margin: 0 0 12px; padding-left: 20px; } .steps li { margin: 3px 0; }
+  textarea { height: 150px; resize: vertical; font: 13px/1.4 Consolas, monospace; word-break: break-all; }
+  .read { margin: 8px 0 12px; min-height: 22px; }
+  .ok { color: #7DCB4F; } .warn { color: #FF9A3A; } .bad { color: #FF6A55; }
+  /* latest */
+  .latest .row { grid-template-columns: minmax(0, 1fr) auto; }
+  footer { text-align: center; color: var(--dim); font-size: 14px; padding: 22px 0 36px; }
+  @media (max-width: 860px) {
+    .db { grid-template-columns: 1fr; }
+    .filters { grid-template-columns: 1fr 1fr; }
+    header.top h1 { font-size: 22px; }
+    .hero { padding: 34px 0 24px; }
+    .hero h1 { font-size: 34px; }
+    .ways, ul.list { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section id="tab-home" class="home">
+    <header class="hero">
+      <img src="logo.png" alt="Forever Item Finder logo" width="148" height="148">
+      <h1>Forever Item Finder</h1>
+      <p class="tag">Every new and changed item in World of Warcraft: Forever. See where it drops, what it does, and who found it first.</p>
+      <div class="buttons">
+        <a class="btn big" href="#db">Search the database</a>
+        <a class="btn big quiet" href="#share">Share your finds</a>
+      </div>
+      <p class="stats" id="stats"></p>
+      <p class="links"><a href="https://www.curseforge.com/wow/addons/forever-item-finder">Get the addon on CurseForge</a> · <a href="https://discord.gg/yMZmnFjUTd">Join the Discord</a></p>
+    </header>
+
+    <section class="box">
+      <h2>Share your finds</h2>
+      <div class="body">
+        <div class="ways">
+          <div class="way">
+            <h3>Just play</h3>
+            <p>With the addon installed, the new items you loot reach every player using it on your ruleset, and theirs reach you. Nothing to set up.</p>
+          </div>
+          <div class="way">
+            <h3>Share them here</h3>
+            <p>Press Share your finds at the bottom of the addon's window, copy the text and paste it here. One button, no account.</p>
+            <a class="btn" href="#share">Share your finds</a>
+          </div>
+          <div class="way">
+            <h3>Look anything up</h3>
+            <p>Every new Forever item: where it drops, how often, and its full tooltip, searchable by name or zone.</p>
+            <a class="btn quiet" href="#db">Open the database</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="box">
+      <h2>Latest finds</h2>
+      <div class="body">
+        <div class="rows" id="homeLatest"></div>
+        <p class="seeall"><a href="#latest">See all latest finds</a></p>
+      </div>
+    </section>
+
+    <section class="box">
+      <h2>What you get</h2>
+      <div class="body">
+        <ul class="list">
+          <li><b>Live Feed:</b> new and changed items as players find them, newest first, with where each one dropped.</li>
+          <li><b>Item Database:</b> every new Forever item, searchable by name or zone, filtered by level, quality, slot, class, source, and dungeon or raid.</li>
+          <li><b>Where it drops:</b> a map with every known spot, the boss, mob, vendor or quest, and the drop rate where it is known.</li>
+          <li><b>Pop-ups:</b> a card the moment a new item is found, filtered the way you choose.</li>
+          <li><b>Full tooltips:</b> pin an item's tooltip beside the window, or link it in chat.</li>
+          <li><b>World Map pins:</b> send an item's drop spots to your World Map with a waypoint.</li>
+        </ul>
+        <p class="note">Type <code>/fif</code> in game or use the minimap button to open it.</p>
+      </div>
+    </section>
+  </section>
+
+  <header class="top hidden" id="topbar">
+    <a class="home-link" href="#home"><img src="logo.png" alt="" width="52" height="52"><h1>Forever Item Finder</h1></a>
+    <a class="btn" href="https://www.curseforge.com/wow/addons/forever-item-finder">Get the addon</a>
+    <a class="btn quiet" href="https://discord.gg/yMZmnFjUTd">Discord</a>
+  </header>
+  <nav class="tabs hidden" id="tabs">
+    <a href="#db" data-tab="db">Item Database</a>
+    <a href="#share" data-tab="share">Share your finds</a>
+    <a href="#latest" data-tab="latest">Latest finds</a>
+  </nav>
+
+  <section id="tab-db" class="db hidden">
+    <div class="box">
+      <h2>Search</h2>
+      <div class="body">
+        <input id="q" class="search" type="search" placeholder="Item name or zone" autocomplete="off" aria-label="Search by item name or zone">
+        <div class="filters">
+          <select id="fQuality" aria-label="Quality"></select>
+          <select id="fSlot" aria-label="Slot"></select>
+          <select id="fClass" aria-label="Class"></select>
+          <select id="fSource" aria-label="Source"></select>
+          <select id="fDungeon" aria-label="Dungeon or raid" class="hidden"></select>
+          <div class="levels"><input id="fMin" type="number" min="0" max="80" placeholder="Min level" aria-label="Lowest level"><input id="fMax" type="number" min="0" max="80" placeholder="Max level" aria-label="Highest level"></div>
+        </div>
+        <div class="chips" id="chips" role="group" aria-label="Kind of item"></div>
+        <div class="db-body">
+          <div class="cats" id="cats" aria-label="Item categories"></div>
+          <div class="db-list">
+            <div class="count" id="count">Loading the database...</div>
+            <div class="rows" id="rows"></div>
+            <button class="btn quiet more hidden" id="more">Show more</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="box item" id="item">
+      <h2>Item</h2>
+      <div class="body" id="itemBody"><div class="empty">Pick an item to see where it drops.</div></div>
+    </div>
+  </section>
+
+  <section id="tab-share" class="hidden">
+    <div class="box">
+      <h2>Share your finds</h2>
+      <div class="body">
+        <ol class="steps">
+          <li>In game, open Forever Item Finder (<b>/fif</b>) and press <b>Share your finds</b> at the bottom.</li>
+          <li>Copy the text it shows (Ctrl+C).</li>
+          <li>Paste it below and press <b>Share</b>. No account needed.</li>
+        </ol>
+        <textarea id="paste" placeholder="Paste here" aria-label="Your share text" spellcheck="false"></textarea>
+        <div class="read" id="read"></div>
+        <button class="btn" id="send" disabled>Share</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-latest" class="hidden">
+    <div class="box latest">
+      <h2>Latest finds</h2>
+      <div class="body">
+        <div class="count" id="latestCount"></div>
+        <div class="rows" id="latestRows"></div>
+      </div>
+    </div>
+  </section>
+
+  <footer>Forever Item Finder is made by Arc and free under the GPL v3. <a href="https://github.com/ArcSim/ForeverItemFinder">GitHub</a><br>
+    World of Warcraft is a trademark of Blizzard Entertainment. This site is not made or endorsed by Blizzard.</footer>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
