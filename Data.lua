@@ -145,7 +145,7 @@ function D.ForEachRow(fn)
         local pos = Dec(index, o + 5, 4)
         fn(pos, Dec(index, o + 1, 4), index:sub(o + 9, o + 9), Dec(index, o + 10, 1), Dec(index, o + 11, 2),
             Dec(index, o + 13, 1), Dec(index, o + 14, 1) - 1, Dec(index, o + 15, 1) - 1, ac == 4095 and -1 or ac,
-            pos + Dec(index, o + 18, 2), D.RowMask(i), D.RowNotFound(i))
+            pos + Dec(index, o + 18, 2), D.RowMask(i), D.RowNotFound(i), i)
     end
 end
 
@@ -666,7 +666,12 @@ local iconIndex = D.iconIndex
 D.iconIndex = nil
 function D.IconOf(id)
     local i = iconIndex and FindSeed(id)
-    if not i or (not ns.isForever and RowBit(newArtBits, i)) then return end
+    return i and D.IconAt(i)
+end
+
+-- the same by seed row index (what ForEachRow passes last), without the search
+function D.IconAt(i)
+    if not iconIndex or (not ns.isForever and RowBit(newArtBits, i)) then return end
     local icon = Dec(iconIndex, (i - 1) * 4 + 1, 4)
     return icon > 0 and icon or nil
 end

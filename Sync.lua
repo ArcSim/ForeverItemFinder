@@ -644,6 +644,15 @@ function S.Announce(rec)
     if engine and S.state == "on" then engine:Announce(rec) end
 end
 
+-- sharing stops for the rest of the session: out of the channel, nothing more sent (a copy switched off mid-session)
+function S.Leave()
+    local id = GetChannelName(Current())
+    if type(id) == "number" and id > 0 and LeaveChannelByName then LeaveChannelByName(Current()) end
+    S.state = "paused"
+    S.joined = true
+    ns.Signal("SyncState")
+end
+
 function S.LastHeard()
     return engine and engine.lastHeard
 end

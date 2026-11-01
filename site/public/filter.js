@@ -44,6 +44,12 @@ export function match(rows, f, favs) {
   return { matches, counts, cats };
 }
 
+// the list's order, as in the addon: Forever's own items first, newest first, old Classic items after, and items with
+// no picture (shown with the game's question mark) after all the others
+export function listOrder(a, b) {
+  return (!a.icon - !b.icon) || ((a.kind === 'o') - (b.kind === 'o')) || (b.id - a.id);
+}
+
 // index.json rows as the page uses them
 export function rowsOf(index) {
   return index.map(([id, name, q, kind, req, ilvl, slot, use, src, dungeon, zones, nf, icon, ic, isc]) =>

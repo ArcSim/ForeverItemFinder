@@ -382,9 +382,25 @@ local function SubKey(cls, sub) return 100000 + cls * 1000 + (sub or -1) + 1 end
 -- the whole list is filtered on every refresh: it reads the shipped index (no line is parsed, no text is made per
 -- row) and reads a name only while a search is typed; the result list is refilled in place
 local dbRefs = {}
+-- whether an item shows a picture (the game's art, else the datamined icon this client holds) or the question mark;
+-- kept per item, dropped when the game sends its data
+local hasArt, dbLate = {}, {}
+local function HasArt(id, row)
+    local v = hasArt[id]
+    if v == nil then
+        local icon = C_Item.GetItemIconByID and C_Item.GetItemIconByID(id)
+        v = (icon ~= nil and icon ~= 134400) or (row and D.IconAt(row) or D.IconOf(id)) ~= nil
+        hasArt[id] = v
+    end
+    return v
+end
+UI.HasArt = HasArt
+
+-- the database's rows in their order, items without a picture after all the others (each part keeps its order)
 local function DbData()
-    local data = dbRefs
+    local data, late = dbRefs, dbLate
     wipe(data)
+    wipe(late)
     wipe(dbCounts)
     dbChipCounts.all, dbChipCounts.n, dbChipCounts.c, dbChipCounts.o, dbChipCounts.u, dbChipCounts.f = 0, 0, 0, 0, 0, 0
     local favs = ns.db.favorites or {}
@@ -397,7 +413,7 @@ local function DbData()
     local inSeed = {}
     -- New holds the new items the beta showed or with a known place, Not Found (u) every other new or hidden one, so New,
     -- Changed, Classic and Not Found add up to All; a favorite (f) can be any kind and counts under Favorites as well
-    local function Consider(ref, id, kind, q, req, cls, sub, inv, ac, name, e, mask, notFound)
+    local function Consider(ref, id, kind, q, req, cls, sub, inv, ac, name, e, mask, notFound, row)
         if not PassOthers(state, id, kind, q, req, cls, sub, inv, ac, name, e, mask) then return end
         if notFound then kind = "u" end
         cls, sub = D.CatOf(cls, sub)
@@ -415,7 +431,9 @@ local function DbData()
             local k = SubKey(cls, sub)
             dbCounts[k] = (dbCounts[k] or 0) + 1
         end
-        if inCat then data[#data + 1] = ref end
+        if inCat then
+            if HasArt(id, row) then data[#data + 1] = ref else late[#late + 1] = ref end
+        end
     end
     -- finds first, newest first
     for _, e in ipairs(ns.Finds.List()) do
@@ -423,10 +441,11 @@ local function DbData()
         Consider(-e.id, e.id, e.k, e.q, e.rq, e.cl, e.sc, e.iv, e.ac, searching and (e.nm or C_Item.GetItemInfo(e.id)) or nil, e,
             state.src > 0 and D.FindMask(e) or 0)
     end
-    D.ForEachRow(function(pos, id, kind, q, req, cls, sub, inv, ac, nameStart, mask, notFound)
+    D.ForEachRow(function(pos, id, kind, q, req, cls, sub, inv, ac, nameStart, mask, notFound, row)
         if inSeed[id] then return end
-        Consider(pos, id, ChipKind(kind), q, req, cls, sub, inv, ac, searching and D.NameAt(nameStart) or nil, nil, mask, notFound)
+        Consider(pos, id, ChipKind(kind), q, req, cls, sub, inv, ac, searching and D.NameAt(nameStart) or nil, nil, mask, notFound, row)
     end)
+    for i = 1, #late do data[#data + 1] = late[i] end
     return data
 end
 
@@ -2898,6 +2917,8 @@ local function RedrawRows()
     end
 end
 ns.On("GET_ITEM_INFO_RECEIVED", function(id)
+    -- its picture may have come with it: the database places it again on its next refresh
+    if hasArt[id] == false then hasArt[id] = nil end
     if not win or not win:IsShown() then return end
     if id == selected then ShowDetail(selected) end
     local list = tab == "db" and UI.dbList or UI.feedList

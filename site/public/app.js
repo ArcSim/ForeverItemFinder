@@ -1,7 +1,7 @@
 // The Forever Item Finder site: the item database (built from the addon, data/), the share box, the latest finds.
 // Everything players send comes back through textContent only, never as markup.
 import { decodeShare } from './share.js';
-import { CHIPS, match, rowsOf, catParts } from './filter.js';
+import { CHIPS, match, rowsOf, catParts, listOrder } from './filter.js';
 import { WhereBlock, sharedSource } from './map.js';
 
 const $ = (id) => document.getElementById(id);
@@ -390,8 +390,7 @@ async function loadLatest() {
   meta = await (await fetch('data/meta.json')).json();
   const index = await (await fetch('data/index.json')).json();
   rows = rowsOf(index);
-  // as in the addon: Forever's own items first, newest first, old Classic items after
-  rows.sort((a, b) => ((a.kind === 'o') - (b.kind === 'o')) || (b.id - a.id));
+  rows.sort(listOrder);
   for (const r of rows) byId.set(r.id, r);
   fillFilters();
   for (const id of ['q', 'fQuality', 'fSlot', 'fClass', 'fDungeon', 'fMin', 'fMax']) $(id).addEventListener('input', filter);

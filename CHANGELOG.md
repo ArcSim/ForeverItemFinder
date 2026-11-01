@@ -1,5 +1,13 @@
 # Forever Item Finder changelog
 
+## 1.0.3
+
+### Improvements
+- **Question marks last**: items with no picture (shown as a question mark) now sit at the bottom of the Item Database, so the list opens on items you can recognize.
+
+### Bug Fixes
+- **Map marks stay**: an item you mark with Mark on Map stays on your maps after a reload or a new session, until you take the mark off.
+
 ## 1.0.2
 
 ### Improvements
