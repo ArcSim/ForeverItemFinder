@@ -1,4 +1,5 @@
 local _, ns = ...
+if ns.shareOnly then return end
 
 local T = ns.Theme
 local D = ns.Data

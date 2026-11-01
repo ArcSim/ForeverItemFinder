@@ -1,4 +1,5 @@
 local _, ns = ...
+if ns.shareOnly then return end
 
 -- Tracked items on the game's own maps: the favorites (Settings, Favorites on the Map) and the Mark on Map item
 -- (WorldPins.lua). Their spots on the World Map while it shows their zone, a plate per zone on a continent, and the
@@ -26,6 +27,7 @@ local function Look() return S().favLook or "icon" end
 -- on Map item whatever the setting
 local function Tracked()
     local ids, out = {}, {}
+    if ns.stopped then return out end
     local hidden = ns.db.favHidden or {}
     if Mode() ~= "off" then
         for id in pairs(ns.db.favorites or {}) do
@@ -310,7 +312,18 @@ local function FillBadge(b, z)
     b:SetSize(w, U(ICON))
 end
 
-local function LayBadges(canvas, mapID, scale, cw, ch)
+-- The map's own layers start at frame level 2000 with the explored-area art, fog and quest areas, which are opaque
+-- and would cover anything under them; the pins go on its dig-site layer, above that art and under its icons. Read
+-- from the map's level table, never by calling its code.
+local function PinLevel(wm, canvas)
+    local mgr = wm.pinFrameLevelsManager
+    local defs = mgr and mgr.definitions
+    local def = defs and defs.PIN_FRAME_LEVEL_DIG_SITE
+    if def and def.overrideType then def = defs[def.overrideType] end
+    return (def and def.startLevel) or (canvas:GetFrameLevel() + 2100)
+end
+
+local function LayBadges(canvas, mapID, scale, cw, ch, level)
     local n = 0
     if mapID and C_Map.GetMapRectOnMap then
         for _, z in ipairs(Zones()) do
@@ -326,7 +339,7 @@ local function LayBadges(canvas, mapID, scale, cw, ch)
                     end
                     b.zone = info.name
                     FillBadge(b, z)
-                    b:SetFrameLevel(canvas:GetFrameLevel() + 1990)
+                    b:SetFrameLevel(level)
                     b:SetScale(1 / scale)
                     -- the first icon sits on the spot, the rest run to its right
                     local px = minX + z.x / 1000 * (maxX - minX)
@@ -350,9 +363,9 @@ local function LayWorld()
     local n = 0
     local scale = mapID and wm:GetCanvasScale()
     if not scale or scale <= 0 then scale = 1 end
-    local cw, ch = 0, 0
-    if canvas then cw, ch = canvas:GetWidth() * scale, canvas:GetHeight() * scale end
-    LayBadges(canvas, mapID, scale, cw, ch)
+    local cw, ch, level = 0, 0, 0
+    if canvas then cw, ch, level = canvas:GetWidth() * scale, canvas:GetHeight() * scale, PinLevel(wm, canvas) end
+    LayBadges(canvas, mapID, scale, cw, ch, level)
     if list then
         -- thinned again only when the zoom crosses a step of a quarter: a zoom animation calls back on every frame, and
         -- between steps the same pins only move. The step rounds down, so the pins are never thinned finer than the zoom
@@ -387,8 +400,7 @@ local function LayWorld()
             end
             p.rec, p.m, p.x, p.y = r, r.m, r.x, r.y
             Style(p, r, size)
-            -- under the pins Show on World Map puts there
-            p:SetFrameLevel(canvas:GetFrameLevel() + 1990)
+            p:SetFrameLevel(level)
             p:SetScale(1 / scale)
             p:ClearAllPoints()
             p:SetPoint("CENTER", canvas, "TOPLEFT", r.x / 1000 * cw, -r.y / 1000 * ch)
@@ -548,6 +560,7 @@ local ROW = U(22)
 
 local function Listed()
     local out = {}
+    if ns.stopped then return out end
     local marked = ns.WorldPins and ns.WorldPins.Marked()
     -- with Pins off in Settings no favorite is on the map to choose from
     for id in pairs(Mode() ~= "off" and ns.db and ns.db.favorites or {}) do
@@ -624,7 +637,7 @@ local function BuildMapButton(wm, container)
     mapBtn:SetSize(31, 31)
     mapBtn:SetFrameLevel(container:GetFrameLevel() + 50)
     local icon = mapBtn:CreateTexture(nil, "BACKGROUND")
-    icon:SetTexture("Interface\\AddOns\\ForeverItemFinder\\Media\\FIF_Minimap")
+    icon:SetTexture(ns.MEDIA .. "FIF_Minimap")
     icon:SetSize(20, 20)
     icon:SetPoint("CENTER", 0, 1)
     local mask = mapBtn:CreateMaskTexture()
@@ -687,6 +700,12 @@ function F.Refresh()
     LayWorld()
     SetupMini()
     SyncMapButton()
+end
+
+-- read by the developer's probe (DevProbe.lua); nothing here changes them
+function F.State()
+    return { hooked = hooked, dirty = dirty, byMap = byMap, records = records, worldPins = worldPins, badges = badges,
+        tracked = Tracked() }
 end
 
 ns.Listen("FavoritesChanged", F.Refresh)

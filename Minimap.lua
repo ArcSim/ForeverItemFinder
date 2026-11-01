@@ -1,4 +1,5 @@
 local _, ns = ...
+if ns.shareOnly then return end
 
 local T = ns.Theme
 local U = T.U
@@ -41,7 +42,7 @@ local function Build()
     button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     button:RegisterForDrag("LeftButton")
     local icon = button:CreateTexture(nil, "BACKGROUND")
-    icon:SetTexture("Interface\\AddOns\\ForeverItemFinder\\Media\\FIF_Minimap")
+    icon:SetTexture(ns.MEDIA .. "FIF_Minimap")
     icon:SetSize(20, 20)
     icon:SetPoint("CENTER", 0, 1)
     -- cut round, so no corner of the art shows past the button's ring

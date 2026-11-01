@@ -1,4 +1,5 @@
 local _, ns = ...
+if ns.shareOnly then return end
 
 -- The tooltip of a new or hidden item the game cannot draw yet, from the datamined numbers and effect lines (Data.lua
 -- D.Tip, D.Effects, D.Hidden, D.Set), in the game's wording and order; T.ItemTip shows the game's own once the server

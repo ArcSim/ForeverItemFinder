@@ -1,4 +1,5 @@
 local _, ns = ...
+if ns.shareOnly then return end
 
 -- The classic look from the picked mockup: dark stone, gold trim, red buttons.
 -- Board sizes are drawn 1.17x the game's units; U() turns a board size into game units.
@@ -168,9 +169,9 @@ function T.Cross(parent, size, hex)
     return f
 end
 
-local STAR_FILL = "Interface\\AddOns\\ForeverItemFinder\\Media\\FIF_Star"
-local STAR_LINE = "Interface\\AddOns\\ForeverItemFinder\\Media\\FIF_StarLine"
-local CHAT_MARK = "Interface\\AddOns\\ForeverItemFinder\\Media\\FIF_Chat"
+local STAR_FILL = ns.MEDIA .. "FIF_Star"
+local STAR_LINE = ns.MEDIA .. "FIF_StarLine"
+local CHAT_MARK = ns.MEDIA .. "FIF_Chat"
 -- the speech bubble of the Link in chat button
 function T.ChatMark(parent, size)
     local t = parent:CreateTexture(nil, "OVERLAY")

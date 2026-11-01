@@ -1,6 +1,8 @@
 site/.wrangler/
 node_modules/
 DevMaps/
+# the developer's map pins probe (retail test runs)
+DevProbe.lua
 # the website's generated data and pictures: rebuilt by site/build_data.lua, fetch_maps.js and fetch_icons.js
 site/public/data/
 site/public/maps/

@@ -1,4 +1,5 @@
 local _, ns = ...
+if ns.shareOnly then return end
 
 -- The item the Mark on Map button marked, until the button takes it off or another item is marked; kept in the save, so
 -- a reload or a new session keeps it. FavPins.lua draws it with the favorites, on the World Map and its continents and

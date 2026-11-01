@@ -23,6 +23,7 @@ ignore:
   - site
   - DevMaps
   - Dev.lua
+  - DevProbe.lua
   # retail test runs only
   - ForeverItemFinder_Mainline.toc
   - Data/RetailMaps.lua

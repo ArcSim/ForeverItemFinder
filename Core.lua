@@ -4,6 +4,9 @@ ns.ADDON = ADDON
 ns.VERSION = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ADDON, "Version")) or "1.0.0"
 ns.DISCORD = "https://discord.gg/yMZmnFjUTd"
 ns.SITE = "https://forever-item-finder.pages.dev/#share"
+ns.MEDIA = "Interface\\AddOns\\" .. ADDON .. "\\Media\\"
+-- A host addon that carries a copy of these files names the copy's save in ns.SAVE, sets ns.shareOnly when it
+-- runs without the window (the window's files then return at once), and sets ns.stopped to silence the copy.
 
 -- Forever runs the 1.x interface; anything else is a test run on another client
 ns.isForever = (select(4, GetBuildInfo()) or 0) < 20000
@@ -84,14 +87,17 @@ function ns.On(event, fn)
 end
 events:SetScript("OnEvent", function(_, event, ...)
     local list = handlers[event]
-    if not list then return end
+    if ns.stopped or not list then return end
     for i = 1, #list do list[i](...) end
 end)
 
+local Command
+
 ns.On("ADDON_LOADED", function(name)
     if name ~= ADDON then return end
-    ForeverItemFinderDB = ForeverItemFinderDB or {}
-    local db = ForeverItemFinderDB
+    local save = ns.SAVE or "ForeverItemFinderDB"
+    _G[save] = _G[save] or {}
+    local db = _G[save]
     db.v = db.v or 1
     db.finds = db.finds or {}
     -- a test run outside Forever starts clean on every load, so the same items count as finds again
@@ -109,16 +115,25 @@ ns.On("ADDON_LOADED", function(name)
     db.salt = db.salt or tostring(math.random(100000, 999999))
     ns.db = db
     ns.settings = db.settings
+    if not ns.shareOnly then
+        SLASH_FOREVERITEMFINDER1 = "/fif"
+        SLASH_FOREVERITEMFINDER2 = "/foreveritemfinder"
+        SlashCmdList.FOREVERITEMFINDER = Command
+    end
     ns.Signal("DBReady")
 end)
 
-ns.On("PLAYER_LOGIN", function()
+-- once, also for a copy loaded on demand after login (its host calls ns.Login then)
+local loggedIn = false
+function ns.Login()
+    if loggedIn then return end
+    loggedIn = true
     ns.Signal("Login")
-end)
+end
+ns.On("PLAYER_LOGIN", ns.Login)
 
-SLASH_FOREVERITEMFINDER1 = "/fif"
-SLASH_FOREVERITEMFINDER2 = "/foreveritemfinder"
-SlashCmdList.FOREVERITEMFINDER = function(msg)
+function Command(msg)
+    if ns.stopped then return end
     msg = (msg or ""):lower():gsub("^%s+", ""):gsub("%s+$", "")
     if msg == "options" or msg == "config" then
         ns.Signal("OpenWindow", "options")

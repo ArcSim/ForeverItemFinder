@@ -1,5 +1,10 @@
 # Forever Item Finder changelog
 
+## 1.0.4
+
+### Bug Fixes
+- **Map pins in every zone**: favorites and marked items now show on the World Map in zones you have explored, instead of being hidden under the map.
+
 ## 1.0.3
 
 ### Improvements
