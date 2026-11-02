@@ -705,11 +705,8 @@ end
 -- who found it
 local ITEM_STATUS = { h = "Changed by a hotfix", c = "Changed from Classic", o = "Old Classic item" }
 local DROPPED = { l = true, o = true, w = true, r = true, c = true }
-local function StatusFacts(e, id, row, hidden, sources)
-    local kind = (e and e.k == "c" and "c") or (row and row.kind)
-    local item = hidden and "Hidden by Blizzard" or ITEM_STATUS[kind] or "New item"
-    -- a worked-out name is never passed off as the real one
-    if hidden and row.name ~= "" then item = item .. ", name not confirmed" end
+-- how to get an item and, for a drop, its rate: the first known source, else where a player found it
+local function HowToGet(e, sources)
     local how, rate
     local s = sources[1]
     if s then
@@ -734,6 +731,19 @@ local function StatusFacts(e, id, row, hidden, sources)
         how = "Found in " .. f.z
         rate = DROPPED[f.t] and "Unknown" or nil
     end
+    return how, rate
+end
+-- the same words for the game's own item tooltips (GameTips.lua)
+function UI.HowToGet(id)
+    return HowToGet(ns.Finds.Get(id), D.Sources(id))
+end
+
+local function StatusFacts(e, id, row, hidden, sources)
+    local kind = (e and e.k == "c" and "c") or (row and row.kind)
+    local item = hidden and "Hidden by Blizzard" or ITEM_STATUS[kind] or "New item"
+    -- a worked-out name is never passed off as the real one
+    if hidden and row.name ~= "" then item = item .. ", name not confirmed" end
+    local how, rate = HowToGet(e, sources)
     local found
     if e then
         local who = e.by or ((e.mine and ns.settings.credit ~= "anon") and UnitName("player")) or "Anonymous"
@@ -2695,8 +2705,17 @@ function UI.BuildSettings(body)
     always:SetPoint("TOPLEFT", U(8), -(items.top + U(8)))
     always:SetChecked(s.showChanges)
     always:SetScript("OnClick", function(self) UI.SetShowChanges(self:GetChecked()) end)
-    items:SetHeight(items.top + U(8) + U(24) + U(10))
+    -- lines on the game's own item tooltips (GameTips.lua)
+    local iy = items.top + U(8) + U(24) + U(8)
+    local tipsLabel = T.Text(items, 13, C.ink)
+    tipsLabel:SetPoint("TOPLEFT", U(10), -(iy + U(4)))
+    tipsLabel:SetText("Tooltips")
+    set.itemTips = T.Dropdown(items, U(190), { { "off", "Off" }, { "changes", "New and changed items" }, { "all", "Every item we list" } },
+        function() return s.itemTips end, function(v) s.itemTips = v end)
+    set.itemTips:SetPoint("TOPLEFT", U(84), -iy)
+    items:SetHeight(iy + U(26) + U(12))
     set.items, set.showChanges = items, always
+    set.controls[#set.controls + 1] = set.itemTips
 
     -- the developer's build only (Dev.lua): pull every find this server's copies hold into the save
     if ns.DEV then
@@ -3015,6 +3034,25 @@ end
 function UI.Select(id)
     selected = id
     UI.Show("feed")
+end
+
+-- the Item Database on one item; false for an item the database does not list
+function UI.OpenItem(id)
+    if not (ns.Finds.Get(id) or D.Seed(id)) then return false end
+    selected = id
+    UI.Show("db")
+    return true
+end
+
+-- Alt+click on an item wherever the game hands out modified clicks (bags, the bank, chat links, loot) opens it in the
+-- Item Database; Alt with Shift or Ctrl stays the game's
+if HandleModifiedItemClick and hooksecurefunc then
+    hooksecurefunc("HandleModifiedItemClick", function(link)
+        if not IsAltKeyDown() or IsShiftKeyDown() or IsControlKeyDown() then return end
+        if type(link) ~= "string" or ns.Secret(link) then return end
+        local id = tonumber(link:match("item:(%d+)"))
+        if id then UI.OpenItem(id) end
+    end)
 end
 
 -- a link the game cannot open: shown selected, ready to copy

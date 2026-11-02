@@ -5,16 +5,23 @@ database of what drops where.
 
 ## Features
 
-- **Live Feed:** new and changed items you and other players find, newest first, with where each one dropped.
 - **Item Database:** every known Forever item, searchable by name or zone, filtered by level, quality, slot, class,
-  source, and dungeon or raid.
+  source, zone, and dungeon or raid.
+- **What changed:** one click shows what changed from Classic, better in green, worse in red.
 - **Where it drops:** bosses, mobs, vendors, quests and containers, with map pins.
+- **Favorites on your map:** star the items you want and they show on your World Map, at the spot or the dungeon
+  where they drop.
+- **Map counts:** how many items each zone and dungeon holds (Settings > Places on the Map).
+- **Live Feed:** new and changed items you and other players find, newest first, with where each one dropped.
 - **Pop-ups:** a card when a new find comes in, filtered the way you choose.
-- **Sharing:** finds go to other players on your ruleset by themselves, under your character's name or anonymously.
+- **Found bar:** how many of the new items players have found so far.
+- **Sharing:** finds go to other players on your ruleset, your guild and your group by themselves, under your
+  character's name or anonymously.
 
 ## Use
 
-`/fif` opens the window. So does the minimap button.
+`/fif` opens the window. So does the minimap button. Alt+click an item in your bags or in a chat link to open it in
+the Item Database.
 
 ## Credits
 

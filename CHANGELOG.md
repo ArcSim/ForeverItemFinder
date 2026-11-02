@@ -1,5 +1,15 @@
 # Forever Item Finder changelog
 
+## 1.2.0
+
+### New Features
+- **Item tooltips**: hover an item to see whether it is new or changed in Forever, and how to get it (Settings > Items > Tooltips).
+- **Alt+click**: Alt+click an item in your bags or a chat link to open it in the Item Database.
+- **Guild and group sharing**: finds also reach your guild and group.
+
+### Bug Fixes
+- **Mounts**: mounts no longer show as changed from Classic.
+
 ## 1.1.0
 
 ### New Features

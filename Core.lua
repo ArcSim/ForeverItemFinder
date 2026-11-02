@@ -46,6 +46,7 @@ local DEFAULTS = {
     credit = "name",        -- name / anon
     winScale = 100,         -- the window's size, in percent
     showChanges = false,    -- the item box shows what changed from Classic without its button
+    itemTips = "changes",   -- lines on the game's item tooltips: off / changes (new and changed items) / all
     -- favorites on the game's maps (FavPins.lua): both (World Map and minimap) / world / off; starring an item is
     -- already the player asking for it, so this starts on
     favPins = "both",
