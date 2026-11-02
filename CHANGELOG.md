@@ -1,5 +1,18 @@
 # Forever Item Finder changelog
 
+## 1.1.0
+
+### New Features
+- **What changed**: a button in the item box shows what changed from Classic.
+- **Map counts**: see how many items each zone and dungeon holds (Settings > Places on the Map).
+- **Zone filter**: show one zone's items in the Item Database.
+- **Found bar**: see how many new items have been found so far.
+- **Quest items**: a new Quest category.
+
+### Improvements
+- **Truer changes**: changed items now match what actually differs from Classic.
+- **Map tooltips**: hover a marked item on the map for its full tooltip.
+
 ## 1.0.4
 
 ### Bug Fixes
