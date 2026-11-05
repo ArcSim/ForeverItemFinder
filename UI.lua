@@ -1493,7 +1493,9 @@ local function ShowDetail(id)
         local left, right, pick
         local en = (i <= MAX_SOURCES or #entries == MAX_SOURCES + 1) and entries[i]
         if #entries == 0 then
-            left = (i == 1 and "Not found in game yet") or (i == 2 and "The first player to loot it fills this in") or nil
+            -- a find seen only in a bag or a tooltip exists, but nobody knows yet where it drops
+            local first = e and "Seen in game, no drop place yet" or "Not found in game yet"
+            left = (i == 1 and first) or (i == 2 and "The first player to loot it fills this in") or nil
             right = ""
         elseif en then
             left, right, pick = en.left, en.rightText or Spot(en, shown), not en.header

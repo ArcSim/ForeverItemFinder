@@ -1,5 +1,13 @@
 # Forever Item Finder changelog
 
+## 1.2.2
+
+### Improvements
+- **Drop info**: items whose drop locations aren't known yet now name the creatures that drop them.
+
+### Bug Fixes
+- **Seen items**: an item seen in game but not looted no longer says "Not found in game yet".
+
 ## 1.2.1
 
 ### Bug Fixes
