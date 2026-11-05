@@ -1,5 +1,18 @@
 # Forever Item Finder changelog
 
+## 1.2.1
+
+### Bug Fixes
+- **Sharing**: sharing finds with other players has been fixed.
+- **Chat channels**: General is back on /1.
+- **Changed items**: 13 items said "Changed by a hotfix" when they are changed from Classic.
+- **Test items**: level-1 test copies of Molten Core gear and potions, and Blizzard's placeholder items, are gone from the list.
+
+### Improvements
+- **Dungeon finds**: items found inside a dungeon now show the dungeon's entrance on the map.
+- **Item data**: updated to the current Forever build, with one newly found item and eleven items that are now out.
+- **Drop locations**: more places items drop or are sold, and fresher mob locations on the maps.
+
 ## 1.2.0
 
 ### New Features

@@ -583,7 +583,17 @@ local function Entries(e, id, sources)
         local look = (s.t == "v" and "vendor") or ((s.t == "o" or s.t == "x") and "object") or "drop"
         local pins = {}
         if s.m and s.x and s.y then pins[1] = { m = s.m, x = s.x, y = s.y, look = look } end
-        out[#out + 1] = { left = left, look = look, pins = pins, zone = s.z or "", exact = true,
+        -- seen inside a dungeon: the map inside has no art to draw, so the entrance gets a pin on the zone outside, as
+        -- a dungeon's listed drops do
+        local dg, inside = D.DungeonNamed(s.z), nil
+        if dg and dg.m and dg.x and dg.y then
+            local m, x, y = OnClientMap(dg.m, dg.x, dg.y)
+            if m then
+                pins[#pins + 1] = { m = m, x = x, y = y, look = "entrance" }
+                inside = dg.name
+            end
+        end
+        out[#out + 1] = { left = left, look = look, pins = pins, zone = s.z or "", exact = true, dungeon = inside, rightText = inside,
             role = "Seen by a player: " .. how,
             who = { name = name or how, lv = (s.lv and s.lv > 0) and tostring(s.lv) or nil, npc = s.npc } }
     end
@@ -2747,8 +2757,13 @@ function UI.BuildSettings(body)
         end
         Count()
         ns.Listen("ReportChanged", Count)
-        dev:SetHeight(dev.top + U(10) + U(26) + U(8) + U(26) + U(12))
+        -- every sharing message in and out (Dev.lua)
+        local traffic = T.Button(dev, "Channel traffic", nil, U(26))
+        traffic:SetPoint("TOPLEFT", report, "BOTTOMLEFT", 0, -U(8))
+        traffic:SetScript("OnClick", function() ns.Dev.ShowTraffic() end)
+        dev:SetHeight(dev.top + U(10) + U(26) + U(8) + U(26) + U(8) + U(26) + U(12))
         set.dev, set.pull, set.devNote, set.report, set.reportCount = dev, pull, note, report, count
+        set.traffic = traffic
     end
 end
 
