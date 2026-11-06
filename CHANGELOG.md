@@ -1,5 +1,10 @@
 # Forever Item Finder changelog
 
+## 1.2.5
+
+### Bug Fixes
+- **Item sharing**: finds from players who catch you up when you log in are no longer ignored.
+
 ## 1.2.4
 
 ### Bug Fixes
