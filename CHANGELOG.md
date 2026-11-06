@@ -1,5 +1,10 @@
 # Forever Item Finder changelog
 
+## 1.2.4
+
+### Bug Fixes
+- **Display**: fixed some display issues.
+
 ## 1.2.3
 
 ### Improvements

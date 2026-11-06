@@ -112,6 +112,7 @@ local function Install()
     engine.devTraffic = true
     ns.Sync.OnAnswer = OnAnswer
     ns.Sync.OnNotice = function(kind, name) Log("channel notice " .. kind .. " on " .. name) end
+    ns.Sync.OnBounce = function(name) Log("whisper to " .. name .. " bounced (not online), nothing more sent to them this session") end
     ns.Sync.OnDrop = function(msg, gaveUp, gap)
         Log("chat line dropped by the server, " .. (gaveUp and "given up" or ("sent again in " .. math.floor(gap) .. " s")) ..
             "  " .. Describe(msg))
