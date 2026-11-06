@@ -247,12 +247,13 @@ end
 function D.Dungeon(area)
     local line = area and BlockLine("dungeons", area)
     if not line then return end
-    local name, at, flag = line:match("^%d+|([^|]*)|([^|]*)|?(%a*)")
+    -- game: the name the game shows inside, where it differs ("Stormwind Stockade" for The Stockade)
+    local name, at, flag, game = line:match("^%d+|([^|]*)|([^|]*)|?(%a*)|?([^|]*)")
     if not name then return end
     -- an announced dungeon has no entrance until the data has one
     local m, x, y = at:match("^(%d+)%.(%d+)%.(%d+)$")
     return { name = name, m = tonumber(m), x = tonumber(x), y = tonumber(y), raid = flag:find("r", 1, true) ~= nil,
-        own = flag:find("f", 1, true) ~= nil }
+        own = flag:find("f", 1, true) ~= nil, game = game ~= "" and game or nil }
 end
 
 -- names compared without a leading "The", case or punctuation, so an announced name still matches the game's
@@ -269,8 +270,10 @@ function D.DungeonNamed(zone)
         for area in blocks.dungeons:gmatch("(%d+)|[^\n]*") do
             local d = D.Dungeon(tonumber(area))
             if d and not dungeonByName[NameKey(d.name)] then dungeonByName[NameKey(d.name)] = d end
+            if d and d.game and not dungeonByName[NameKey(d.game)] then dungeonByName[NameKey(d.game)] = d end
         end
     end
+    if type(zone) ~= "string" then return end
     return dungeonByName[NameKey(zone)]
 end
 
@@ -503,6 +506,16 @@ function D.HasSources(id)
     return BlockLine("sources", id) ~= nil
 end
 
+-- a quest's name by its id: the shipped quest data, else the game's own title (nil while the game has none)
+function D.QuestName(id)
+    if type(id) ~= "number" or ns.Secret(id) then return end
+    local line = BlockLine("quests", id)
+    local name = line and line:match("^%d+|([^|]*)|")
+    if name and name ~= "" then return name end
+    local title = C_QuestLog and C_QuestLog.GetTitleForQuestID and C_QuestLog.GetTitleForQuestID(id)
+    if type(title) == "string" and not ns.Secret(title) and title ~= "" then return title end
+end
+
 function D.Sources(id)
     local line = BlockLine("sources", id)
     if not line then return {} end
@@ -560,6 +573,10 @@ function D.Sources(id)
                 end
             end
             src = { name = (count or 0) .. (t == "s" and " kinds of beasts" or " kinds of mobs"), pins = pins, count = count }
+        elseif t == "d" then
+            -- players had it inside this dungeon, from no creature the data places
+            local d = D.Dungeon(tonumber(rest))
+            if d then src = { name = "Dungeon loot", pins = {}, dungeon = d } end
         end
         if src then
             src.t = t
@@ -583,6 +600,9 @@ function D.SourceMask(id)
         elseif t == "c" then m = AddBit(m, 64)
         elseif t == "k" then m = AddBit(m, 128)
         elseif t == "s" then m = AddBit(m, 256)
+        elseif t == "d" then
+            local d = D.Dungeon(tonumber(ref:match("^d(%d+)")))
+            if d then m = AddBit(m, d.raid and 1 or 2) end
         elseif t == "l" or t == "o" then
             local p = Place(t == "l" and "npcs" or "objects", tonumber(ref:match("^%a(%d+)")))
             if p and p.dungeon then m = AddBit(m, p.dungeon.raid and 1 or 2) end

@@ -59,7 +59,7 @@ local function FindLine(e)
     local s = e.s and e.s[1]
     if s then
         if s.t == "x" then return s.n and ("Inside " .. s.n) or "From a container" end
-        local who = s.n or (s.t == "v" and "A vendor") or (s.t == "q" and "A quest") or (s.t == "r" and "Group loot") or
+        local who = (s.t == "q" and s.n and ("Quest: " .. s.n)) or s.n or (s.t == "v" and "A vendor") or (s.t == "q" and "A quest") or (s.t == "r" and "Group loot") or
             (s.t == "c" and "Another player's loot") or "Looted"
         return s.z and (who .. ", " .. s.z) or who
     end
@@ -492,7 +492,7 @@ local detail = { zoneList = {}, zoneCount = {}, zoneEntrance = {}, zoneArt = {} 
 -- o: a chest, node or fishing pool where it stands; x: a container opened from the bags (no place)
 local KIND_OF = { l = "Drop", r = "Group roll", v = "Vendor", q = "Quest", c = "Another player's loot", o = "Looted", x = "Inside" }
 -- what a known source does, for the hover card: l mob, v vendor, o object, w world drop, s skinning
-local ROLE = { l = "Drops it", v = "Sells it", o = "Holds it", w = "Drops it", s = "Skin it" }
+local ROLE = { l = "Drops it", v = "Sells it", o = "Holds it", w = "Drops it", s = "Skin it", d = "Drops inside" }
 local RANK = { "Elite", "Rare Elite", "Boss", "Rare" }
 local MAX_SOURCES = 3
 -- pin looks in board px: size, ring width, ring, fill, centre; a source line's dot wears the same colour
@@ -715,6 +715,7 @@ end
 -- who found it
 local ITEM_STATUS = { h = "Changed by a hotfix", c = "Changed from Classic", o = "Old Classic item" }
 local DROPPED = { l = true, o = true, w = true, r = true, c = true }
+local FOUND_HOW = { l = "Drops from ", v = "Sold by ", o = "Looted from ", x = "Inside " }
 -- how to get an item and, for a drop, its rate: the first known source, else where a player found it
 local function HowToGet(e, sources)
     local how, rate
@@ -727,6 +728,7 @@ local function HowToGet(e, sources)
         local t = s.t
         if t == "q" then how = "Quest reward: " .. (s.name or "?") .. (s.lv and (" (" .. s.lv .. ")") or "")
         elseif t == "w" then how = "World drop"
+        elseif t == "d" then how = "Drops in " .. s.dungeon.name
         elseif t == "v" then how = "Sold by " .. (s.name or "a vendor") .. there
         elseif t == "k" then how = "Crafted with " .. (s.name or "a profession") .. ((s.skill or 0) > 0 and (" (" .. s.skill .. ")") or "")
         elseif t == "c" then how = "Inside " .. (s.name or "a container")
@@ -734,13 +736,26 @@ local function HowToGet(e, sources)
         elseif t == "o" and s.gather then how = (s.gather == "Mining" and "Mined from " or "Gathered from ") .. (s.name or "a node") .. there
         elseif t == "o" then how = "Looted from " .. (s.name or "an object") .. there
         else how = "Drops from " .. (s.name or "a mob") .. there end
-        if t == "l" or t == "o" or t == "w" then rate = s.chance and RateText(s):gsub("^%l", string.upper) or "Unknown" end
+        if t == "l" or t == "o" or t == "w" or t == "d" then rate = s.chance and RateText(s):gsub("^%l", string.upper) or "Unknown" end
     end
-    local f = e and e.s and e.s[1]
-    if not how and f and f.z then
-        how = "Found in " .. f.z
-        rate = DROPPED[f.t] and "Unknown" or nil
+    if how or not (e and e.s) then return how, rate end
+    -- nothing known yet: the player's find says how, from its first source that names something
+    local f
+    for _, s in ipairs(e.s) do
+        if s.n or s.npc then f = s break end
     end
+    f = f or e.s[1]
+    if not f then return end
+    local dg = D.DungeonNamed(f.z)
+    local at = (dg and dg.name) or f.z
+    local there = at and (" in " .. at) or ""
+    local name = f.n or (f.npc and ("NPC " .. f.npc))
+    if f.t == "q" then how = f.n and ("Quest reward: " .. f.n) or ("A quest" .. there)
+    elseif f.t == "r" then how = "Group roll" .. there
+    elseif f.t == "c" then how = "Another player's loot" .. there
+    elseif name and FOUND_HOW[f.t] then how = FOUND_HOW[f.t] .. name .. there
+    elseif at then how = "Found in " .. at end
+    rate = how and DROPPED[f.t] and "Unknown" or nil
     return how, rate
 end
 -- the same words for the game's own item tooltips (GameTips.lua)
@@ -2725,8 +2740,18 @@ function UI.BuildSettings(body)
     set.itemTips = T.Dropdown(items, U(190), { { "off", "Off" }, { "changes", "New and changed items" }, { "all", "Every item we list" } },
         function() return s.itemTips end, function(v) s.itemTips = v end)
     set.itemTips:SetPoint("TOPLEFT", U(84), -iy)
-    items:SetHeight(iy + U(26) + U(12))
+    -- what changed from Classic marked on the game's tooltips too (GameTips.lua), always or while a key is held
+    local cy = iy + U(34)
+    local marksLabel = T.Text(items, 13, C.ink)
+    marksLabel:SetPoint("TOPLEFT", U(10), -(cy + U(4)))
+    marksLabel:SetText("Changes")
+    set.tipMarks = T.Dropdown(items, U(190), { { "off", "Off" }, { "always", "Always" }, { "alt", "While holding Alt" },
+        { "ctrl", "While holding Ctrl" }, { "shift", "While holding Shift" } },
+        function() return s.itemTipChanges end, function(v) s.itemTipChanges = v end)
+    set.tipMarks:SetPoint("TOPLEFT", U(84), -cy)
+    items:SetHeight(cy + U(26) + U(12))
     set.items, set.showChanges = items, always
+    set.controls[#set.controls + 1] = set.tipMarks
     set.controls[#set.controls + 1] = set.itemTips
 
     -- the developer's build only (Dev.lua): pull every find this server's copies hold into the save

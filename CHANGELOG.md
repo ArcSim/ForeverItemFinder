@@ -1,5 +1,16 @@
 # Forever Item Finder changelog
 
+## 1.3.0
+
+### New Features
+- **Quest rewards**: rewards in your quest log are recorded without hovering them, and quest rewards shared by other players now name their quest.
+- **Item changes on tooltips**: hold Alt over an item to see what changed from Classic right on its tooltip; Settings can switch it to Ctrl, Shift, always or off.
+
+### Improvements
+- **Dungeon finds**: items found inside a dungeon now show the dungeon's entrance on the map, including finds shared by other players.
+- **How to get**: items without drop info yet now say what the player who found them saw, like the mob that dropped it or the dungeon it came from.
+- **Item data**: 19 hidden items now have names, 12 old items show what Forever changed, and new drop places found by players.
+
 ## 1.2.5
 
 ### Bug Fixes
