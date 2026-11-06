@@ -1,5 +1,13 @@
 # Forever Item Finder changelog
 
+## 1.2.3
+
+### Improvements
+- **Item sharing**: finds are shared with more players on your realm.
+- **Live Feed**: shows only real news: items whose drop place was just found, or that changed from what we knew.
+- **Quest rewards**: rewards you hover in your quest log are saved as quest rewards.
+- **Item data**: today's hotfixes, and new drop places found by players.
+
 ## 1.2.2
 
 ### Improvements
