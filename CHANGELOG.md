@@ -1,5 +1,10 @@
 # Forever Item Finder changelog
 
+## 1.3.1
+
+### Improvements
+- **Item data**: updated to the latest Forever build: 78 hidden items now have names, 25 old items show what Forever changed (Maraudon gear among them), and new drop places found by players.
+
 ## 1.3.0
 
 ### New Features
