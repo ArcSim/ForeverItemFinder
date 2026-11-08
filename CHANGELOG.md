@@ -1,5 +1,10 @@
 # Forever Item Finder changelog
 
+## 1.3.2
+
+### Improvements
+- **Item data**: updated to the latest Forever build: over 130 old items show what Forever changed (Zul'Farrak, Sunken Temple, Maraudon and Blackrock Depths gear), 61 hidden items now have names, and new drop places found by players.
+
 ## 1.3.1
 
 ### Improvements
