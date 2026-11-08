@@ -1,5 +1,10 @@
 # Forever Item Finder changelog
 
+## 1.3.3
+
+### Improvements
+- **Item data**: updated with Forever's latest hotfixes: 34 hidden items now have names (new Dustwallow Marsh and Un'Goro quest rewards among them), 20 more old items show what Forever changed (Maraudon, Blackrock Depths and Blackrock Spire gear), and new drop places found by players.
+
 ## 1.3.2
 
 ### Improvements
