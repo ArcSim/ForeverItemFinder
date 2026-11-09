@@ -1,5 +1,10 @@
 # Forever Item Finder changelog
 
+## 1.3.5
+
+### Improvements
+- **Item data**: updated with Forever's latest data: 66 hidden items now have names, 89 more old items show what Forever changed (Scholomance, Stratholme, Blackrock Depths and Sunken Temple gear among them), and new drop places found by players.
+
 ## 1.3.4
 
 ### New Features
