@@ -1,5 +1,13 @@
 # Forever Item Finder changelog
 
+## 1.3.4
+
+### New Features
+- **Minimap nodes**: within 50 yards of a marked vein, herb or chest, the minimap pin hides its icon and keeps its border, so you can see with Find Minerals or Find Herbs whether the node is up. Change the distance or turn it off under Settings, Favorites on the Map, Nodes.
+
+### Improvements
+- **Item data**: updated with Forever's latest hotfixes: 23 more new items, and 122 more old items show what Forever changed (Dire Maul, Sunken Temple, Maraudon and Blackrock Depths gear).
+
 ## 1.3.3
 
 ### Improvements
