@@ -1,5 +1,12 @@
 # Forever Item Finder changelog
 
+## 1.3.6
+
+### Improvements
+- **Item data**: updated with Forever's latest data: 70 hidden items now have names, 300 more old items show what Forever changed (Dire Maul, Stratholme, Scholomance and Blackrock Spire gear among them), 27 newly found items including mounts, companions and cosmetic sets, and new drop places found by players.
+- **Mounts**: 67 mounts now show that Forever made them Bind on Pickup.
+- **Quest rewards**: 66 items from new Forever quests now name the quest that gives them.
+
 ## 1.3.5
 
 ### Improvements
