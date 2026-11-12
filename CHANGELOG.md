@@ -1,5 +1,14 @@
 # Forever Item Finder changelog
 
+## 1.3.7
+
+### New Features
+- **Compare with your gear**: hold Shift over an item in the finder to compare it with what you're wearing, or hover the new Compare button on an item's page. Settings, Items can switch it to Alt, Ctrl, always or off.
+- **Auction prices**: the finder's item tooltips now show the prices your auction add-on has scanned.
+
+### Improvements
+- **Item data**: updated with Forever's latest data: 17 hidden items now have names, 117 more old items show what Forever changed (Upper Blackrock Spire, Scholomance, Stratholme and Dire Maul gear and the Chromatic set among them), 2 newly found items, and drop places for about 1,900 more items.
+
 ## 1.3.6
 
 ### Improvements
