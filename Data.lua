@@ -137,9 +137,10 @@ end
 
 -- every row, newest first, read from the index alone (no line is parsed, nothing is made per row):
 -- fn(pos, id, kind, quality, requiredLevel, class, subclass, slot, allowedClasses, nameStart, sourceMask, notFound)
-function D.ForEachRow(fn)
+-- from and to (row indexes, from >= to) walk part of the rows, so a long walk can be spread over frames
+function D.ForEachRow(fn, from, to)
     IndexSeed()
-    for i = rows, 1, -1 do
+    for i = math.min(from or rows, rows), math.max(to or 1, 1), -1 do
         local o = (i - 1) * STRIDE
         local ac = Dec(index, o + 16, 2)
         local pos = Dec(index, o + 5, 4)
@@ -147,6 +148,11 @@ function D.ForEachRow(fn)
             Dec(index, o + 13, 1), Dec(index, o + 14, 1) - 1, Dec(index, o + 15, 1) - 1, ac == 4095 and -1 or ac,
             pos + Dec(index, o + 18, 2), D.RowMask(i), D.RowNotFound(i), i)
     end
+end
+
+function D.RowCount()
+    IndexSeed()
+    return rows
 end
 
 -- a row's name, from where ForEachRow says it starts
@@ -435,17 +441,18 @@ function D.FilterPasses(st, id, q, req, cls, sub, inv, ac, mask, e)
     return true
 end
 
--- an NPC or object: its name, level text, rank (1 elite, 2 rare elite, 3 boss, 4 rare), spots, and the dungeon it
--- stands in (if any); an object's level field holds the gathering skill a vein or herb needs (gather: its name)
+-- an NPC or object: its name, level text, rank (1 elite, 2 rare elite, 3 boss, 4 rare), side ("a" / "h": friendly to
+-- that faction only), spots, and the dungeon it stands in (if any); an object's level field holds the gathering skill a
+-- vein or herb needs (gather: its name)
 local function Place(kind, id)
     local line = BlockLine(kind, id)
     if not line then return end
-    local name, level, rank, spots = line:match("^%d+|([^|]*)|([^|]*)|([^|]*)|(.*)$")
+    local name, level, rank, side, spots = line:match("^%d+|([^|]*)|([^|]*)|(%d*)(%l?)|(.*)$")
     if not name then return end
     local pins, inside = Spots(spots)
     local gather = kind == "objects" and level ~= "" and D.PROFESSIONS[tonumber(level)] or nil
     return { id = id, name = name, lv = level ~= "" and not gather and level or nil, rank = tonumber(rank), pins = pins,
-        dungeon = D.Dungeon(inside), gather = gather }
+        dungeon = D.Dungeon(inside), gather = gather, side = side ~= "" and side or nil }
 end
 D.Place = Place
 
@@ -544,12 +551,15 @@ function D.Sources(id)
         elseif t == "q" then
             local qline = BlockLine("quests", tonumber(rest))
             -- "qline and qline:match(...)" would keep only the first capture
-            local name, level, gk, gid
-            if qline then name, level, gk, gid = qline:match("^%d+|([^|]*)|([^|]*)|(%a?)(%d*)$") end
+            local name, level, by
+            if qline then name, level, by = qline:match("^%d+|([^|]*)|([^|]*)|(.*)$") end
             if name then
-                local giver = gid ~= "" and Place(gk == "o" and "objects" or "npcs", tonumber(gid))
+                local gk, gid = by:match("^(%a?)(%d*)$")
+                local giver = gid and gid ~= "" and Place(gk == "o" and "objects" or "npcs", tonumber(gid))
                 if giver and gk ~= "o" then giver.npc = giver.id end
-                src = { name = name, lv = level ~= "" and level or nil, pins = giver and giver.pins or {},
+                -- a quest only players' finds know: the spots where they saw its window
+                local seen = not gid and (Spots(by))
+                src = { name = name, lv = level ~= "" and level or nil, pins = (giver and giver.pins) or seen or {},
                     dungeon = giver and giver.dungeon, giver = giver or nil }
             end
         elseif t == "c" then

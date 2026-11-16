@@ -1,5 +1,16 @@
 # Forever Item Finder changelog
 
+## 1.3.8
+
+### Improvements
+- **Smoother Item Database**: clicking from item to item no longer costs frames, a search waits until you stop typing, and a new search or filter fills the list over a few frames behind a short loading screen instead of freezing the game.
+- **Every vendor**: an item's page now lists every vendor that sells it, your own faction's first and the ones in your zone on top. The other faction's vendors come last and say so.
+- **Every source**: an item's page now lists every quest that rewards it, every vein and herb that holds it, and every bag or box it comes out of, not just the first few.
+- **Item data**: updated with Forever's latest data: 15 hidden items now have names (Wit's Edge, Shaper's Robe and the Scarlet Hearthstone among them), 36 more old items show what Forever changed (Quel'Serrar, Shroud of Domination and Lord Valthalak's Staff of Command among them), 1 newly found item, and new drop places found by players.
+
+### Bug Fixes
+- **Set bonuses**: an item's page now fills in its set bonus text once the game sends it, instead of leaving "(3) Set:" empty.
+
 ## 1.3.7
 
 ### New Features
