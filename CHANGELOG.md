@@ -1,5 +1,12 @@
 # Forever Item Finder changelog
 
+## 1.3.9
+
+### Improvements
+- **Smoother first look**: opening the Item Database and your first search no longer hitch. The finder prepares its counts quietly a little after you log in, and searches spread their work over more frames on slower computers.
+- **Forever's new dungeons**: 159 items from The Drowned City, Alcaz Prison, Shaper's Terrace, Krol'dok Stronghold and Blackmaw Hold now name their boss and dungeon, show the entrance on the map, and appear under the Dungeon filter.
+- **Item data**: updated with Forever's latest data: 3 hidden items now have names (Shadow Scalper, Ancient Giant's Gaze and Cannibal's Cleaver), 12 old items show new changes from Forever (Totem of Rebirth is now Totem of Tides; Blade of Necromancy, Onyxia Blood Talisman and four Darkmoon Cards among them), and new drop places found by players.
+
 ## 1.3.8
 
 ### Improvements

@@ -159,6 +159,11 @@ end
 function D.NameAt(nameStart)
     return seed:match("^[^\n]*", nameStart)
 end
+-- whether a row's name holds a pattern (one that starts "^[^\n]-", so it stays on the row), read in place: a search
+-- makes no string per row
+function D.NameHas(nameStart, linePattern)
+    return seed:find(linePattern, nameStart) ~= nil
+end
 
 -- flags carry the data version that first listed a row, so an update counts what it adds even when it drops others
 D.version = D.version or 1
@@ -368,7 +373,8 @@ local Discovery
 -- on each redraw
 local discovery = {}
 local function TeachesPlace(e)
-    for _, s in ipairs(e.s or {}) do
+    if not e.s then return false end
+    for _, s in ipairs(e.s) do
         if s.t and s.t ~= "q" then return true end
     end
     return false
