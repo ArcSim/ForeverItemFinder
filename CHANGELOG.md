@@ -1,5 +1,12 @@
 # Forever Item Finder changelog
 
+## 1.3.10
+
+### Improvements
+- **Found for every known item**: an item's Found line now reads "Yes" whenever the item has a known way to get it (a drop, a quest, a vendor, a recipe), and "Yes, dungeon loot" for dungeon drops, instead of "Not yet in Forever" until a player shared it. Loot from raids Forever has not opened yet still reads "Not yet in Forever".
+- **Fewer Not Found tags**: about 300 more new items now count as found, so the Not Found tag and chip show only the items nobody knows a way to get yet.
+- **Item data**: updated with Forever's latest data: Forever's new epic armor sets (Grovekeeper, Justice, Glory, Spiritcaller and more) now show item level 60, Hardened Stone Band and Huntsman's Harpoon show what Forever changed, Bronze Mace, Whiteout Staff and Crackling Staff show their latest hotfix, 1 newly found item (Camper's Lure), and where to get 62 more new items (recipes, plans and patterns among them).
+
 ## 1.3.9
 
 ### Improvements

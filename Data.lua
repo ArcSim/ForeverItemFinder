@@ -135,6 +135,14 @@ function D.IsNotFound(id)
     return i ~= nil and D.RowNotFound(i)
 end
 
+-- rows a public item database lists with a source, in the same shape: in the game, so found
+local listedBits = D.listed
+D.listed = nil
+function D.IsListed(id)
+    local i = FindSeed(id)
+    return i ~= nil and RowBit(listedBits, i)
+end
+
 -- every row, newest first, read from the index alone (no line is parsed, nothing is made per row):
 -- fn(pos, id, kind, quality, requiredLevel, class, subclass, slot, allowedClasses, nameStart, sourceMask, notFound)
 -- from and to (row indexes, from >= to) walk part of the rows, so a long walk can be spread over frames
@@ -263,8 +271,9 @@ function D.Dungeon(area)
     if not name then return end
     -- an announced dungeon has no entrance until the data has one
     local m, x, y = at:match("^(%d+)%.(%d+)%.(%d+)$")
+    -- later: a raid Forever has not opened yet
     return { name = name, m = tonumber(m), x = tonumber(x), y = tonumber(y), raid = flag:find("r", 1, true) ~= nil,
-        own = flag:find("f", 1, true) ~= nil, game = game ~= "" and game or nil }
+        own = flag:find("f", 1, true) ~= nil, later = flag:find("l", 1, true) ~= nil, game = game ~= "" and game or nil }
 end
 
 -- names compared without a leading "The", case or punctuation, so an announced name still matches the game's

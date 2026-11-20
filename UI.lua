@@ -878,6 +878,19 @@ function UI.HowToGet(id)
     return HowToGet(ns.Finds.Get(id), D.Sources(id))
 end
 
+-- an item the data knows a source for is in the game: "dungeon" for a dungeon's loot, "known" for any other source;
+-- a source inside a raid Forever has not opened yet does not count
+local function KnownSource(sources)
+    local known
+    for _, s in ipairs(sources or {}) do
+        if not (s.dungeon and s.dungeon.later) then
+            if (s.t == "l" or s.t == "d") and s.dungeon then return "dungeon" end
+            known = "known"
+        end
+    end
+    return known
+end
+
 local function StatusFacts(e, id, row, hidden, sources)
     local kind = (e and e.k == "c" and "c") or (row and row.kind)
     local item = hidden and "Hidden by Blizzard" or ITEM_STATUS[kind] or "New item"
@@ -885,10 +898,14 @@ local function StatusFacts(e, id, row, hidden, sources)
     if hidden and row.name ~= "" then item = item .. ", name not confirmed" end
     local how, rate = HowToGet(e, sources)
     local found
+    -- a listing elsewhere counts only where our data knows no source: it also lists raids Forever has not opened
+    local known = not e and (KnownSource(sources) or (#(sources or {}) == 0 and D.IsListed(id) and "known"))
     if e then
         local who = e.by or ((e.mine and ns.settings.credit ~= "anon") and UnitName("player")) or "Anonymous"
         local n = ns.Finds.Reporters(e)
         found = "By " .. who .. (e.at and (", " .. date("%b %d", e.at)) or "") .. ", " .. n .. (n == 1 and " player" or " players")
+    elseif known then
+        found = known == "dungeon" and "Yes, dungeon loot" or "Yes"
     else
         found = (row and row.beta) and "Seen in the beta" or "Not yet in Forever"
     end

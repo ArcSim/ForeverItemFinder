@@ -200,6 +200,46 @@ local function Hex(r, g, b)
     return ("%02X%02X%02X"):format(math.floor((r or 1) * 255 + 0.5), math.floor((g or 1) * 255 + 0.5), math.floor((b or 1) * 255 + 0.5))
 end
 
+-- old Classic items' tooltips (build_classic_tips.js): the addon ships none, the game draws them; read with the
+-- addon's own parsers (Data.lua D.Tip / D.Effects / D.Set) and used only where the addon has nothing
+local CLASSIC = dofile(ADDON .. "/site/classic_tips.lua")
+local function Lines(text)
+    local out = {}
+    for line in text:gmatch("[^\n]+") do out[tonumber(line:match("^(%d+)"))] = line end
+    return out
+end
+local CTIPS, CEFFECTS, CSETS = Lines(CLASSIC.tips), Lines(CLASSIC.effects), Lines(CLASSIC.sets)
+local function ClassicTip(id)
+    local line = CTIPS[id]
+    local bind, unique, armor, dmg, stats, more = (line or ""):match("^%d+|(%d*)|(%a*)|(%d*)|([%d%-]*)|([^|]*)|?(.*)$")
+    if not bind then return end
+    local tip = { bind = tonumber(bind), unique = unique ~= "" and unique or nil, armor = tonumber(armor), stats = {}, more = {} }
+    local lo, hi, delay, school = dmg:match("^(%d+)%-(%d+)%-(%d+)%-?(%d*)$")
+    if lo then tip.dmg = { tonumber(lo), tonumber(hi), tonumber(delay), tonumber(school) } end
+    for t, v in stats:gmatch("(%d+)%.(%-?%d+)") do tip.stats[#tip.stats + 1] = { tonumber(t), tonumber(v) } end
+    for entry in more:gmatch("[^\t]+") do
+        local tag, text = entry:sub(1, 1), entry:sub(2)
+        tip.more[tag] = text ~= "" and text or true
+    end
+    return tip
+end
+local function ClassicEffects(id)
+    local out = {}
+    for trig, text in ((CEFFECTS[id] or ""):match("^%d+|(.*)$") or ""):gmatch("(%d)([^\t]+)") do
+        out[#out + 1] = { trig = tonumber(trig), text = text }
+    end
+    return #out > 0 and out or nil
+end
+local function ClassicSet(setID)
+    local line = setID and CSETS[setID]
+    local name, pieces, items, bonuses = (line or ""):match("^%d+|([^|]*)|(%d+)|([^|]*)|(.*)$")
+    if not name then return end
+    local set = { name = name, pieces = tonumber(pieces), items = {}, bonuses = {} }
+    for item in items:gmatch("[^\t]+") do set.items[#set.items + 1] = item end
+    for thr, text in bonuses:gmatch("(%d+)~([^\t]+)") do set.bonuses[#set.bonuses + 1] = { tonumber(thr), text } end
+    return set
+end
+
 -- the datamined tooltip as [text, colour, right text]
 local function TipLines(id)
     local lines = {}
@@ -207,8 +247,50 @@ local function TipLines(id)
     function tip:ClearLines() lines = {} end
     function tip:AddLine(text, r, g, b) lines[#lines + 1] = { text, Hex(r, g, b) } end
     function tip:AddDoubleLine(a, b2, r, g, bl) lines[#lines + 1] = { a, Hex(r, g, bl), b2 } end
-    if not T.DataTip(tip, id) then return nil end
-    return lines
+    if T.DataTip(tip, id) then return lines end
+    if not CTIPS[id] or D.Tip(id) then return nil end
+    -- only while this tooltip is drawn, so the addon's own item box never sees these
+    local tipOf, effectsOf, setOf = D.Tip, D.Effects, D.Set
+    D.Tip = ClassicTip
+    D.Effects = function(i) return effectsOf(i) or ClassicEffects(i) end
+    D.Set = function(s) return setOf(s) or ClassicSet(s) end
+    local ok = T.DataTip(tip, id)
+    D.Tip, D.Effects, D.Set = tipOf, effectsOf, setOf
+    return ok and lines or nil
+end
+
+-- what changed from Classic, marked on the tooltip's lines as the addon's item box marks them (Tooltip.lua
+-- T.MarkChanges), its name line left out: each line [text, colour, right, segs, rsegs], a piece [text, colour, mark]
+-- with mark "o" for Classic's value (small, struck) or "g" for a value Forever dropped (struck)
+local function MarkedPieces(segs, hex)
+    if not segs then return 0 end
+    local out = {}
+    for i, sg in ipairs(segs) do
+        local kind = sg[2]
+        local look = T.CHANGE_LOOK[kind == "gone" and (sg[3] or "down") or kind]
+        out[i] = { sg[1], look or hex }
+        if kind == "old" then out[i][3] = "o" elseif kind == "gone" then out[i][3] = "g" end
+    end
+    return out
+end
+local function ChangeLines(id, tipLines)
+    if not tipLines or not D.HasChanges(id) then return nil end
+    local lines = {}
+    for i = 2, #tipLines do
+        local l = tipLines[i]
+        lines[#lines + 1] = { l[1], l[3] or "", hex = l[2] }
+    end
+    if not T.MarkChanges(lines, id, D.Seed(id)) then return nil end
+    local out = {}
+    for i, l in ipairs(lines) do
+        local hex = l.hex or Hex(l[3], l[4], l[5])
+        out[i] = { l[1], hex, l[2] or "" }
+        if l.segs or l.rsegs then
+            out[i][4] = MarkedPieces(l.segs, hex)
+            if l.rsegs then out[i][5] = MarkedPieces(l.rsegs, hex) end
+        end
+    end
+    return out
 end
 
 -- each mob's or object's spots, kept once for every item it gives: "n<npc>" / "o<object>" -> { { map, { x, y, ... } }, ... }
@@ -326,8 +408,9 @@ D.ForEachSeed(function(id, kind)
     local req = (row.req or 0) > 0 and ("Requires level " .. row.req) or (hidden and "Level unknown") or "No level needed"
     local b = id % BUCKETS
     buckets[b] = buckets[b] or {}
+    local tip = TipLines(id)
     buckets[b][tostring(id)] = { line = D.ItemLine(row.cls, row.sub, row.inv, row.ilvl), req = req, status = status, where = where,
-        spots = spots, lines = lineOf, map = MapEntries(det.entries or {}), tip = TipLines(id), beta = row.beta or nil }
+        spots = spots, lines = lineOf, map = MapEntries(det.entries or {}), tip = tip, chg = ChangeLines(id, tip), beta = row.beta or nil }
     nItems = nItems + 1
 end)
 

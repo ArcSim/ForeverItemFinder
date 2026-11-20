@@ -63,6 +63,66 @@ function rowStar(id) {
   return b;
 }
 
+// what changed from Classic: shown while the switch is on (kept in this browser) or while Shift is held
+const CHG_KEY = 'fif-changes';
+let chgOn = false, shiftHeld = false;
+try { chgOn = localStorage.getItem(CHG_KEY) === '1'; } catch { chgOn = false; }
+function applyChanges() {
+  document.body.classList.toggle('chg', chgOn || shiftHeld);
+  document.querySelectorAll('[data-chg]').forEach((b) => {
+    b.classList.toggle('on', chgOn);
+    b.setAttribute('aria-pressed', chgOn ? 'true' : 'false');
+  });
+}
+function toggleChanges() {
+  chgOn = !chgOn;
+  try { localStorage.setItem(CHG_KEY, chgOn ? '1' : '0'); } catch { /* private window: kept for this visit */ }
+  applyChanges();
+}
+window.addEventListener('keydown', (e) => {
+  // a capital letter typed in a box is not a request to see changes
+  if (e.key !== 'Shift' || shiftHeld || e.target.closest?.('input, textarea, select')) return;
+  shiftHeld = true;
+  applyChanges();
+});
+window.addEventListener('keyup', (e) => { if (e.key === 'Shift' && shiftHeld) { shiftHeld = false; applyChanges(); } });
+window.addEventListener('blur', () => { if (shiftHeld) { shiftHeld = false; applyChanges(); } });
+// the item box's switch, as the addon's: a delta, filled while on
+function changesButton() {
+  const s = document.createElementNS(SVG, 'svg');
+  s.setAttribute('viewBox', '0 0 24 24');
+  const p = document.createElementNS(SVG, 'path');
+  p.setAttribute('d', 'M12 4L21 20H3z');
+  s.append(p);
+  const b = el('button', { class: 'star chgbtn', type: 'button', 'data-chg': '', title: 'Show what changed from Classic (or hold Shift)',
+    onclick: (e) => { e.stopPropagation(); toggleChanges(); } }, s);
+  b.classList.toggle('on', chgOn);
+  b.setAttribute('aria-pressed', chgOn ? 'true' : 'false');
+  return b;
+}
+
+// a tooltip's lines as the game draws them, [text, colour, right]; a line marked with what changed carries its pieces
+// [text, colour, mark] (site/build_data.lua ChangeLines), mark "o" for Classic's value, "g" for a value Forever dropped
+function pieces(list) {
+  return list.map(([text, hex, mark]) => el('span', mark ? { class: 'pc-' + mark, style: `color:#${hex}` } : { style: `color:#${hex}` }, text));
+}
+function tipLine([text, hex, right, segs, rsegs]) {
+  return el('div', { style: `color:#${hex}` }, el('span', {}, segs ? pieces(segs) : text),
+    right ? el('span', {}, rsegs ? pieces(rsegs) : right) : null);
+}
+// an item's tooltip lines under its name; a changed item gets both sets, the marked one shown while changes are on
+function tipBody(d, name, cls) {
+  const box = el('div', { class: cls });
+  const now = d.tip.slice(d.tip[0]?.[0] === name ? 1 : 0).map(tipLine);
+  if (!d.chg) {
+    box.append(...now);
+    return box;
+  }
+  box.classList.add('has-chg');
+  box.append(el('div', { class: 'v-now' }, now), el('div', { class: 'v-chg' }, d.chg.map(tipLine)));
+  return box;
+}
+
 // an item's icon from the client's art (icons/<file id>.png); an item with none, or art we could not get, shows the
 // game's question mark as the game does, and a drawn one while that file is missing too
 const NO_ICON = 134400;
@@ -102,7 +162,7 @@ async function showTip(r, e) {
   if (ttFor !== r.id) return;
   const lines = [];
   if (d && d.tip) {
-    d.tip.slice(1).forEach(([text, hex, right]) => lines.push(el('div', { style: `color:#${hex}` }, el('span', {}, text), right ? el('span', {}, right) : null)));
+    lines.push(tipBody(d, r.name, 'lines'));
   } else if (d) {
     lines.push(el('div', {}, el('span', {}, d.line)), el('div', {}, el('span', {}, d.req)));
   }
@@ -265,21 +325,16 @@ async function showItem(id) {
   const foundDd = el('dd', {}, d.status.find((s) => s[0] === 'Found')?.[1] || 'Not yet in Forever');
   facts.append(el('dt', {}, 'Found'), foundDd);
   const where = new WhereBlock(d, meta, spots);
-  const parts = [
-    el('div', { class: 'item-head' }, iconEl(r, 52),
-      el('div', {}, el('h3', { style: `color:#${qualityHex(r.q)}` }, r.name), el('div', { class: 'line' }, d.line), el('div', { class: 'req' }, d.req)),
-      el('div', { class: 'head-btns' }, wowheadLink(id), starButton(id))),
-    facts,
-  ];
+  // the item box is the item's tooltip, as in the addon: icon, name and buttons, then the tooltip's lines under them
+  const box = el('div', { class: 'itembox' },
+    el('div', { class: 'item-head' }, iconEl(r, 40),
+      el('div', {}, el('h3', { style: `color:#${qualityHex(r.q)}` }, r.name),
+        d.tip ? null : el('div', { class: 'line' }, d.line), d.tip ? null : el('div', { class: 'req' }, d.req)),
+      el('div', { class: 'head-btns' }, d.chg ? changesButton() : null, wowheadLink(id), starButton(id))));
+  if (d.tip) box.append(tipBody(d, r.name, 'tip'));
+  const parts = [box, facts];
   if (d.where.length) parts.push(el('h4', {}, 'Where it drops'), where.el);
   else parts.push(el('p', { class: 'note' }, 'Not found in game yet. The first player to loot it fills this in.'));
-  if (d.tip) {
-    const tip = el('div', { class: 'tip' });
-    for (const [text, hex, right] of d.tip) {
-      tip.append(el('div', { style: `color:#${hex}` }, el('span', {}, text), right ? el('span', {}, right) : null));
-    }
-    parts.push(el('h4', {}, 'Tooltip'), tip);
-  }
   const shared = el('div', {});
   parts.push(el('h4', {}, 'Shared by players'), shared);
   body.replaceChildren(...parts);
@@ -364,23 +419,65 @@ function latestRow(f) {
   const row = known ? { ...known } : { id: f.id, name: `Item ${f.id}`, q: f.q ?? -1, kind: f.k, req: 0, dungeon: '', zones: '' };
   const e = rowEl(row, () => { location.hash = 'item/' + f.id; });
   e.querySelector('.sub')?.remove();
-  e.append(el('span', { class: 'sub' }, [day(f.found_at), (meta.zones || {})[f.m],
+  e.append(el('span', { class: 'sub' }, [day(f.found_at), (meta?.zones || {})[f.m],
     `${f.sharers} ${f.sharers === 1 ? 'player' : 'players'}`].filter(Boolean).join(' · ')));
   return e;
 }
+// the Latest finds page: each find as its tooltip card, the tag beside the name, then when, where and how many players
+function latestCard(f, d) {
+  const known = byId.get(f.id);
+  const r = known || { id: f.id, name: `Item ${f.id}`, q: f.q ?? -1, kind: f.k, nf: 0, icon: 0 };
+  const tag = r.nf && r.kind !== 'x' ? 'u' : r.kind;
+  const open = () => { location.hash = 'item/' + f.id; };
+  const card = el('div', { class: 'fcard', role: 'button', tabindex: '0', 'data-id': f.id, onclick: open,
+    onkeydown: (e) => { if (e.key === 'Enter' && e.target === card) open(); } },
+    el('div', { class: 'fcard-head' }, iconEl(r, 34), el('span', { class: 'nm', style: `color:#${qualityHex(r.q)}` }, r.name),
+      el('span', { class: 'chip ' + tag }, KIND[tag] || '')),
+    d && d.tip ? tipBody(d, r.name, 'tip') :
+      el('div', { class: 'tip' }, el('div', { class: 'line' }, el('span', {}, d ? `${d.line} · ${d.req}` : 'Not in the database yet.'))),
+    el('div', { class: 'fcard-sub' }, [day(f.found_at), (meta.zones || {})[f.m],
+      `${f.sharers} ${f.sharers === 1 ? 'player' : 'players'}`].filter(Boolean).join(' · ')));
+  return card;
+}
+const CARDS = 12;
+let latestList = [], cardsShown = CARDS;
+// every card's tooltip is in before the cards are drawn, so none of them grows after it is on the page
+async function drawCards() {
+  const list = latestList, n = cardsShown;
+  const want = list.slice(0, n);
+  const ds = await Promise.all(want.map((f) => (byId.has(f.id) ? bucket(f.id).catch(() => null) : null)));
+  if (list !== latestList || n !== cardsShown) return;
+  const box = $('latestRows');
+  box.replaceChildren(...want.map((f, i) => latestCard(f, ds[i])));
+  if (want.length === 0) box.append(el('div', { class: 'empty' }, 'Nothing shared yet. Be the first!'));
+  $('latestMore').classList.toggle('hidden', cardsShown >= latestList.length);
+}
+$('latestMore').addEventListener('click', () => { cardsShown += CARDS; drawCards(); });
+$('latestChg').addEventListener('click', toggleChanges);
+applyChanges();
+
+let latestSeq = 0;
 async function loadLatest() {
   const box = $('latestRows');
   const home = $('homeLatest');
+  const seq = ++latestSeq;
   try {
     const r = await (await fetch('api/finds')).json();
+    if (seq !== latestSeq) return;
     const shared = `${r.total.toLocaleString()} ${r.total === 1 ? 'find' : 'finds'} shared so far`;
     $('latestCount').textContent = shared;
     $('stats').textContent = (meta ? `${meta.items.toLocaleString()} items in the database · ` : '') + shared;
-    for (const [target, list] of [[box, r.latest], [home, r.latest.slice(0, 5)]]) {
-      target.replaceChildren(...list.map(latestRow));
-      if (list.length === 0) target.append(el('div', { class: 'empty' }, 'Nothing shared yet. Be the first!'));
-    }
+    // the lists wait for the database files (names, icons, tooltips); the start runs this again once they are in
+    if (!meta || byId.size === 0) return;
+    // a find the database does not know (no name, no tooltip) is left out of the lists
+    const list = r.latest.filter((f) => byId.has(f.id));
+    home.replaceChildren(...list.slice(0, 5).map(latestRow));
+    if (list.length === 0) home.append(el('div', { class: 'empty' }, 'Nothing shared yet. Be the first!'));
+    if (latestList.map((f) => f.id).join() !== list.map((f) => f.id).join()) cardsShown = CARDS;
+    latestList = list;
+    await drawCards();
   } catch {
+    if (seq !== latestSeq) return;
     for (const target of [box, home]) target.replaceChildren(el('div', { class: 'empty' }, 'The latest finds could not be loaded right now.'));
   }
 }

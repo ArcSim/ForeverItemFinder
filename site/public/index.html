@@ -175,16 +175,36 @@
   .map .card .cn { color: #FFFFFF; font-weight: 600; font-size: 15px; }
   .map .card .cl { color: var(--title); }
   .map .card .cp { color: var(--dim); }
-  .tip { background: #0B0F1C; border: 1px solid #5A6478; border-radius: 4px; padding: 10px 12px; font-size: 14px; line-height: 1.45; }
+  .itembox { background: #0B0F1C; border: 1px solid #5A6478; border-radius: 4px; padding: 10px 12px; margin-bottom: 14px; }
+  .itembox .item-head { align-items: center; margin-bottom: 0; }
+  .itembox h3 { font-size: 20px; line-height: 1.25; }
+  .tip { margin-top: 8px; font-size: 14px; line-height: 1.45; }
   .tip div { display: flex; justify-content: space-between; gap: 12px; }
+  /* what changed from Classic: a changed item carries both sets of lines, the marked one shown while body.chg is on */
+  .tt .lines, .has-chg > .v-now, .has-chg > .v-chg { display: block; }
+  body:not(.chg) .has-chg > .v-chg, body.chg .has-chg > .v-now { display: none; }
+  .pc-o { font-size: 12px; margin-left: 4px; text-decoration: line-through; }
+  .pc-g { text-decoration: line-through; }
+  /* latest finds: each find as its tooltip card, the tag beside the name */
+  .cardbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 4px 0 10px; }
+  .cardbar .count { margin: 0; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(290px, 100%), 1fr)); gap: 10px; }
+  .fcard { display: flex; flex-direction: column; min-width: 0; background: #0B0F1C; border: 1px solid #5A6478; border-radius: 4px;
+    padding: 10px 12px; cursor: pointer; }
+  .fcard:hover, .fcard:focus-visible { border-color: var(--gold); outline: none; }
+  .fcard-head { display: flex; align-items: center; gap: 8px; }
+  .fcard-head .nm { font-weight: 600; font-size: 15px; line-height: 1.25; min-width: 0; }
+  .fcard-head .chip { flex: none; }
+  .fcard .tip { flex: 1; margin-top: 6px; }
+  .fcard .tip .line { color: var(--dim); }
+  .fcard-sub { margin-top: 8px; padding-top: 6px; border-top: 1px solid #262D3D; color: var(--dim); font-size: 13px; }
+  .chgbtn svg { stroke-linejoin: round; }
   .note { color: var(--faint); font-size: 14px; }
   /* share */
   .steps { margin: 0 0 12px; padding-left: 20px; } .steps li { margin: 3px 0; }
   textarea { height: 150px; resize: vertical; font: 13px/1.4 Consolas, monospace; word-break: break-all; }
   .read { margin: 8px 0 12px; min-height: 22px; }
   .ok { color: #7DCB4F; } .warn { color: #FF9A3A; } .bad { color: #FF6A55; }
-  /* latest */
-  .latest .row { grid-template-columns: minmax(0, 1fr) auto; }
   footer { text-align: center; color: var(--dim); font-size: 14px; padding: 22px 0 36px; }
   @media (max-width: 860px) {
     .db { grid-template-columns: 1fr; }
@@ -318,8 +338,12 @@
     <div class="box latest">
       <h2>Latest finds</h2>
       <div class="body">
-        <div class="count" id="latestCount"></div>
-        <div class="rows" id="latestRows"></div>
+        <div class="cardbar">
+          <div class="count" id="latestCount"></div>
+          <button class="kind" id="latestChg" type="button" data-chg="" aria-pressed="false" title="Or hold Shift">Show what changed</button>
+        </div>
+        <div class="cards" id="latestRows"></div>
+        <button class="btn quiet more hidden" id="latestMore">Show more</button>
       </div>
     </div>
   </section>
