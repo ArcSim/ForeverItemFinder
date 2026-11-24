@@ -494,6 +494,32 @@ local NAMES = 9
 local slot, hops, refused = 1, 0, false
 local function Current() return slot == 1 and CHANNEL or (CHANNEL .. slot) end
 
+-- Knocking on a locked name makes the game show its own password box, which no chat filter stops. A name refused
+-- once is kept per realm for a day and passed by without knocking, so a locked name costs a player one box a day
+local LOCK_FOR = 24 * 3600
+local function Locks()
+    local realm = GetNormalizedRealmName and GetNormalizedRealmName()
+    if not ns.db or type(realm) ~= "string" or realm == "" or ns.Secret(realm) then return nil end
+    ns.db.locked = ns.db.locked or {}
+    local t = ns.db.locked[realm] or {}
+    ns.db.locked[realm] = t
+    return t
+end
+local function IsLocked(name)
+    local t = Locks()
+    local at = t and t[name:lower()]
+    if not at then return false end
+    if ns.Now() - at >= LOCK_FOR then
+        t[name:lower()] = nil
+        return false
+    end
+    return true
+end
+local function MarkLocked(name)
+    local t = Locks()
+    if t then t[name:lower()] = ns.Now() end
+end
+
 local engine
 local joinTries = 0
 S.state = "starting"     -- starting / on / nochannel / paused
@@ -639,6 +665,8 @@ local function Join()
         ns.Signal("SyncState")
         return true
     end
+    -- a name found locked lately is passed by without knocking
+    if IsLocked(Current()) then return Hop() end
     joinTries = joinTries + 1
     refused = false
     local at = slot
@@ -751,8 +779,10 @@ local function Notice(kind, first, _, _, second, _, _, _, name, _, _, guid)
     end
     if name:lower() ~= Current():lower() then return end
     if kind == "WRONG_PASSWORD" or kind == "BANNED" then
+        if kind == "WRONG_PASSWORD" then MarkLocked(name) end
         refused = true
     elseif TAKEOVER[kind] and S.state == "on" then
+        if kind == "PASSWORD_CHANGED" then MarkLocked(name) end
         Hop()
     elseif kind == "YOU_LEFT" and S.state == "on" then
         -- put out of the channel: back in, or on to the next name when the door stays shut
@@ -763,6 +793,13 @@ local function Notice(kind, first, _, _, second, _, _, _, name, _, _, guid)
 end
 ns.On("CHAT_MSG_CHANNEL_NOTICE", Notice)
 ns.On("CHAT_MSG_CHANNEL_NOTICE_USER", Notice)
+-- the game asks for a password (its own box is already up) when a name we knock on is locked: that name refused us
+ns.On("CHANNEL_PASSWORD_REQUEST", function(name)
+    if type(name) ~= "string" or ns.Secret(name) or not Ours(name) then return end
+    MarkLocked(name)
+    Report(name .. ": a password we do not know was asked for")
+    if name:lower() == Current():lower() then refused = true end
+end)
 
 -- AreOutgoingAddonChatMessagesRestricted is no send gate: it reads true on ordinary realms (tournament realms clear it)
 -- while addon messages still go out there

@@ -1,5 +1,13 @@
 # Forever Item Finder changelog
 
+## 1.3.11
+
+### Improvements
+- **Item data**: updated with Forever's latest data: 5 hidden items now have names (Portable Wormhole Generator, Portable Repair Bot, Enchanted Silk Bag, Adventurer's Supply Bundle and Adventurer's Field Kit), Gnome Engineer's Renewal Gift shows what Forever changed, Small Brown-wrapped Package shows its latest hotfix, Destiny shows its drops in Blackmaw Hold, where to get about 250 more items, and about 160 fewer Not Found tags.
+
+### Bug Fixes
+- **Password pop-ups**: if someone locks the finder's sharing channel with a password, the finder no longer shows the game's password box on every try. It moves to a backup channel and leaves the locked one alone for a day.
+
 ## 1.3.10
 
 ### Improvements
