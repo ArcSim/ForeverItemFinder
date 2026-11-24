@@ -44,6 +44,18 @@ local function Describe(msg)
     elseif k == "A" then
         local token, heard, host, version = P.DecodeAnswer(msg)
         if token then return "answer to ping " .. token .. ": " .. host .. " " .. version .. ", heard it by " .. Dev.HowWord(heard) end
+    elseif k == "R" then
+        local newest = P.DecodeWhere(msg)
+        if newest then return "where do the copies share? (holds channel events up to " .. When(newest) .. ")" end
+    elseif k == "N" then
+        local slot = P.DecodeHere(msg)
+        if slot then return "the copies share on " .. ns.Sync.NameOf(slot) end
+    elseif k == "K" then
+        local ids = P.DecodeKnown(msg)
+        if ids then return "confirmed already: " .. #ids .. " items of this page" end
+    elseif k == "W" then
+        local ev = P.DecodeEvent(msg)
+        if ev and ev.slot <= 9 then return "channel event " .. When(ev.t) .. ": " .. ns.Sync.EventText(ev) end
     end
     if P.OtherVersion(msg) then return "a message from another version of the addon" end
     return "unreadable message"
@@ -153,6 +165,7 @@ local function Install()
     engine.Receive = function(self, msg, dist, sender, via)
         local own = sender == env.me or (env.isMe ~= nil and env.isMe(sender))
         local muted = self.muted[sender]
+        local capped = self:IsCapped(sender)
         if sender and not own then Dev.seen[sender] = { t = ns.Now(), what = KIND_WORD[P.Kind(msg)] or "a message" } end
         local route = via == "line" and (dist .. " line") or dist
         Log("in  " .. route .. " from " .. (own and "you (your own message coming back)" or tostring(sender)) .. "  " .. Describe(msg))
@@ -167,7 +180,11 @@ local function Install()
         elseif not P.DecodeFind(msg) then
             why = "unreadable"
         elseif self.muted[sender] then
-            why = "the sender just got muted for flooding"
+            why = "the sender just got muted"
+        elseif capped then
+            why = "the sender is past 40 finds in 5 minutes, the rest of them skipped"
+        elseif self:IsCapped(sender) then
+            why = "the sender just went past 40 finds in 5 minutes"
         else
             why = "the same report already came by another route"
         end

@@ -1,5 +1,10 @@
 # Forever Item Finder changelog
 
+## 1.3.12
+
+### Improvements
+- **Open channel first**: if the sharing channel gets locked, the finder joins an open one right away.
+
 ## 1.3.11
 
 ### Improvements

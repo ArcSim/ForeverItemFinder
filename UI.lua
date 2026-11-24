@@ -2409,6 +2409,22 @@ local function Build()
     local footText = T.Text(win, 12, C.foot)
     footText:SetPoint("LEFT", dot, "RIGHT", U(6), 0)
     UI.footDot, UI.footText = dot, footText
+    -- hovering the sharing line lists what players did to the sharing channels lately, by name
+    local footHit = CreateFrame("Frame", nil, win)
+    footHit:SetPoint("TOPLEFT", dot, "TOPLEFT", 0, U(6))
+    footHit:SetPoint("BOTTOMRIGHT", footText, "BOTTOMRIGHT", 0, -U(6))
+    footHit:EnableMouse(true)
+    footHit:SetScript("OnEnter", function(self)
+        local lines = ns.Sync.WhoLines(3)
+        if #lines == 0 then return end
+        GameTooltip:SetOwner(self, "ANCHOR_TOP")
+        GameTooltip:SetText("Sharing channel events", 1, 1, 1)
+        local r, g, b = T.RGB(C.dim)
+        for _, line in ipairs(lines) do GameTooltip:AddLine(line, r, g, b, true) end
+        GameTooltip:Show()
+    end)
+    footHit:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    UI.footHit = footHit
     local discord = T.Button(win, "Discord", nil, U(22), 12)
     discord:SetPoint("BOTTOMRIGHT", -(BORDER + U(14)), BORDER + U(10) + U(4))
     discord:SetScript("OnClick", function() UI.ShowLink(ns.DISCORD) end)
