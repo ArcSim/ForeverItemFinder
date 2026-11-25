@@ -145,7 +145,7 @@ function Detect.Kind(id, game)
         if not game then return end
         if game.q == a and game.ilvl == b and game.req == c then return end
         return "c"
-    elseif what == "boring" then
+    elseif what == "boring" or what == "test" then
         return
     end
     return "n"
@@ -155,6 +155,7 @@ end
 function Detect.Judge(id, info)
     if not ns.isForever then return ns.db.retailFinds == true end
     local what, row = D.Classify(id)
+    if what == "test" then return false end
     if what == "boring" or (what == "seed" and row.kind == "o") then
         -- an old item said to be changed shows only once two players report it
         if info.kind == "c" then info.pend = true return true end

@@ -12,6 +12,12 @@ local sorted          -- newest first, rebuilt only after a change
 ns.Listen("DBReady", function()
     db = ns.db.finds
     sorted = nil
+    -- a test kit copy kept from an older data version goes too
+    if ns.isForever then
+        for id in pairs(db or {}) do
+            if ns.Data.IsTestKit(id) then db[id] = nil end
+        end
+    end
 end)
 
 -- reporters are counted, never named: a salted hash per install

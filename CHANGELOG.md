@@ -1,5 +1,13 @@
 # Forever Item Finder changelog
 
+## 1.3.13
+
+### Improvements
+- **Item data**: updated with Forever's latest data: rogue poisons show their latest hotfix, Totem of the Storm is now Totem of the Maelstrom, and where to get 44 more new items.
+
+### Bug Fixes
+- **Test gear**: level-1 test copies of old items, like Super Hogger's Sulfuras, no longer show up as finds.
+
 ## 1.3.12
 
 ### Improvements

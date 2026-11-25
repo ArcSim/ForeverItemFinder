@@ -813,6 +813,12 @@ function D.IsBoring(id)
     return floor(v / 2 ^ (id % 6)) % 2 == 1
 end
 
+-- level-1 copies of Classic items on new ids that nothing in the game hands out: never a find
+local testKit = "," .. (D.testKit or "") .. ","
+function D.IsTestKit(id)
+    return testKit:find("," .. id .. ",", 1, true) ~= nil
+end
+
 -- old Classic items the client withholds: 9 characters each (id, quality, item level, required level)
 local withheld, withheldRows
 function D.Withheld(id)
@@ -843,6 +849,7 @@ function D.Classify(id)
     local q, ilvl, req = D.Withheld(id)
     if q then return "withheld", q, ilvl, req end
     if D.IsBoring(id) then return "boring" end
+    if D.IsTestKit(id) then return "test" end
     return "unknown"
 end
 
