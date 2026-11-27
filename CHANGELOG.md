@@ -1,5 +1,10 @@
 # Forever Item Finder changelog
 
+## 1.3.14
+
+### Improvements
+- **Item data**: updated for Forever's new patch: Don Julio's and Don Rodrigo's Bands, the Runic plate set, Vilerend Slicer and more show their latest changes.
+
 ## 1.3.13
 
 ### Improvements
