@@ -1,5 +1,10 @@
 # Forever Item Finder changelog
 
+## 1.3.15
+
+### Bug Fixes
+- **Chat spam**: the finder no longer fills your chat with "No player named ... is currently playing." lines.
+
 ## 1.3.14
 
 ### Improvements

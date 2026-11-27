@@ -20,6 +20,7 @@ local PAGE_GAP = 3            -- seconds before asking for the next page
 local PAGE_WAIT = 40          -- seconds a next-page ask waits for an answer before the run counts as done
 local OVERLAP = 3600          -- a catch-up reaches an hour back from the bookmark, for finds recorded around it
 local SENDER_WINDOW = 300
+local HEARD_FRESH = 120       -- seconds after a player's copy last spoke that the player may still be whispered
 local SENDER_MAX = 40         -- finds new to this copy heard from one sender per window; the rest of that window goes unheard
 local SEND_MAX = 30           -- finds this copy sends per window, well under what the others hear (SENDER_MAX)
 local BAD_MAX = 5             -- broken messages before a sender is muted
@@ -38,7 +39,7 @@ local NEWS_MAX = 3            -- channel events one answer carries
 function Engine.New(env)
     local e = setmetatable({ env = env, chanQ = {}, whisQ = {}, grpQ = {}, pumping = false, nextChan = 0, nextWhis = 0, nextGrp = 0,
         senders = {}, muted = {}, serving = {}, announced = {}, helloSent = false, lastHeard = nil, helped = {}, unreachable = {},
-        round = { claims = {}, bestCount = -1 }, pageAfter = 0, sent = {} }, Engine)
+        heard = {}, round = { claims = {}, bestCount = -1 }, pageAfter = 0, sent = {} }, Engine)
     return e
 end
 
@@ -76,11 +77,24 @@ local function Bad(self, b, sender, msg, via)
     if b.bad >= BAD_MAX then self:Mute(sender, b.bad .. " unreadable messages") end
 end
 
+local function DropWhispers(q, to)
+    local n = 0
+    for i = 1, #q do
+        if q[i].to ~= to then
+            n = n + 1
+            q[n] = q[i]
+        end
+    end
+    for i = #q, n + 1, -1 do q[i] = nil end
+end
+
 function Engine:Pump()
     if self.pumping then return end
     local env = self.env
     local function Step()
         self.pumping = false
+        -- whispers that waited past the time their player's copy last spoke are dropped
+        while self.whisQ[1] and not self:Reachable(self.whisQ[1].to) do DropWhispers(self.whisQ, self.whisQ[1].to) end
         if #self.chanQ == 0 and #self.whisQ == 0 and #self.grpQ == 0 then return end
         if not env.canSend() then
             self.pumping = true
@@ -142,24 +156,24 @@ function Engine:QueueGroup(dist, msg)
     self:Pump()
 end
 
+-- each whisper to a player who logged off prints "No player named" in this player's chat, and the game's answer comes too
+-- late to stop the next one: only a player whose copy spoke within HEARD_FRESH is whispered
+function Engine:Reachable(to)
+    local at = self.heard[to]
+    return at ~= nil and not self.unreachable[to] and self.env.now() - at <= HEARD_FRESH
+end
+
 function Engine:QueueWhisper(to, msg)
-    if self.unreachable[to] or #self.whisQ >= WHISPER_ROOM then return end
+    if not self:Reachable(to) or #self.whisQ >= WHISPER_ROOM then return end
     table.insert(self.whisQ, { to = to, msg = msg })
     self:Pump()
 end
 
 -- the server says this player is not online: the rest of their page is dropped and nothing more is whispered to them
--- this session, since each whisper into nothing prints a line in the player's chat
+-- this session
 function Engine:Unreachable(to)
     self.unreachable[to] = true
-    local q, n = self.whisQ, 0
-    for i = 1, #q do
-        if q[i].to ~= to then
-            n = n + 1
-            q[n] = q[i]
-        end
-    end
-    for i = #q, n + 1, -1 do q[i] = nil end
+    DropWhispers(self.whisQ, to)
 end
 
 -- this copy saw something worth telling: once per item per session. fresh: new to this copy or changed, so it goes ahead
@@ -422,11 +436,6 @@ function Engine:Ping(sender, token, via)
     end)
 end
 
--- a player whose copy spoke: one to ask where the copies share at a later login
-function Engine:Peer(sender)
-    if self.env.onPeer then self.env.onPeer(sender) end
-end
-
 -- a copy logging in asks where the copies share: the answer is this copy's channel name, then the channel events it saw
 -- itself that the asker does not hold yet (newer than its newest), all by whisper
 function Engine:Where(sender, newest)
@@ -455,6 +464,7 @@ function Engine:Receive(msg, dist, sender, via)
     if not sender or sender == env.me or (env.isMe and env.isMe(sender)) or self.muted[sender] then return end
     -- a banned player is not heard at all
     if env.banned and env.banned(sender) then return end
+    self.heard[sender] = env.now()
     local kind = P.Kind(msg)
     -- the guild and the group carry live finds, the guild also the channel news; asks, claims and pages stay on the
     -- channel and whispers
@@ -463,7 +473,6 @@ function Engine:Receive(msg, dist, sender, via)
     if kind == "F" then
         local info = P.DecodeFind(msg)
         if not info then return Bad(self, b, sender, msg, via) end
-        self:Peer(sender)
         self:Heard()
         -- a find heard on the channel, the guild or the group is a first-hand report; a whispered one is a catch-up
         -- copy. The same report on two of them counts and records once
@@ -513,7 +522,6 @@ function Engine:Receive(msg, dist, sender, via)
     elseif kind == "H" then
         local count, sum, since, after = P.DecodeHello(msg)
         if not count then return Bad(self, b, sender, msg, via) end
-        self:Peer(sender)
         -- a fresh ask comes at login and at most once a minute from Refresh; past ASK_MAX in a window more asks go
         -- unanswered, without a mute (a player reloading a lot is no troublemaker; a page run's next asks carry a cursor
         -- and are not counted)
@@ -596,19 +604,16 @@ function Engine:Receive(msg, dist, sender, via)
         local newest = P.DecodeWhere(msg)
         if not newest then return Bad(self, b, sender, msg, via) end
         if dist == "CHANNEL" then return end
-        self:Peer(sender)
         self:Where(sender, newest)
     elseif kind == "N" then
         local slot = P.DecodeHere(msg)
         if not slot then return Bad(self, b, sender, msg, via) end
         if dist ~= "WHISPER" then return end
-        self:Peer(sender)
         if env.onHere then env.onHere(sender, slot) end
     elseif kind == "W" then
         local ev = P.DecodeEvent(msg)
         if not ev then return Bad(self, b, sender, msg, via) end
         if dist == "CHANNEL" then return end
-        self:Peer(sender)
         if env.onEvent then env.onEvent(sender, ev) end
     else
         Bad(self, b, sender, msg, via)
@@ -1176,37 +1181,15 @@ local function ReplyName(name, sender, guid)
     return name .. "-" .. (sender:match("%-(.+)$") or realm:gsub("%s", ""))
 end
 
--- Before its first knock, a copy asks where the copies share: its guild, and the players whose copies it heard lately
--- (a whisper to one who is offline bounces quietly). It goes straight to the lowest name an answer gives, so a name
--- locked while it was away costs no password box
-local PEER_MAX = 40
-local PEER_FRESH = 14 * 86400
-local ASK_PEERS = 5
+-- Before its first knock, a copy asks its guild where the copies share. It goes straight to the lowest name an answer
+-- gives, so a name locked while it was away costs no password box
 local told = {}
 
-local function RecordPeer(sender)
-    if type(sender) ~= "string" or ns.Secret(sender) or sender == "" or IsMe(sender) or Banned(sender) then return end
-    local t = Realm("peers")
-    if not t then return end
-    t[route[sender] or sender] = ns.Now()
-    local n, oldest, at = 0, nil, nil
-    for k, v in pairs(t) do
-        n = n + 1
-        if type(v) ~= "number" or not at or v < at then oldest, at = k, type(v) == "number" and v or -1 end
-    end
-    if n > PEER_MAX then t[oldest] = nil end
-end
-
 local function AskWhere()
+    -- players heard on earlier logins are not kept: a whisper to one who has logged off prints a line in chat
+    if ns.db then ns.db.peers = nil end
     if not engine or not CanSend() then return end
-    local msg = P.EncodeWhere(Newest())
-    if IsInGuild and IsInGuild() then engine:QueueGroup("GUILD", msg) end
-    local list, now = {}, ns.Now()
-    for name, at in pairs(Realm("peers") or {}) do
-        if type(at) == "number" and now - at <= PEER_FRESH then list[#list + 1] = { name = name, at = at } end
-    end
-    table.sort(list, function(a, b) return a.at > b.at end)
-    for i = 1, math.min(ASK_PEERS, #list) do engine:QueueWhisper(list[i].name, msg) end
+    if IsInGuild and IsInGuild() then engine:QueueGroup("GUILD", P.EncodeWhere(Newest())) end
 end
 
 -- answers count until this copy first knocks; the lowest name wins, so one wrong answer cannot pull it away from where
@@ -1481,7 +1464,6 @@ ns.Listen("DBReady", function()
         host = ns.SAVE == "ArcAurasFindsDB" and "Arc Auras" or "Item Finder",
         version = ns.VERSION,
         onAnswer = function(...) if S.OnAnswer then S.OnAnswer(...) end end,
-        onPeer = RecordPeer,
         here = Here,
         news = News,
         onHere = OnHere,
